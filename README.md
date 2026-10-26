@@ -8,6 +8,7 @@
 2. 对 Top-N 异常，通过 **RAG（知识库 + 历史日报）** 检索相关经验，调用 **智谱 GLM-4.7-Flash** 生成结构化原因分析与建议；模型限流、超时或输出无效时自动回退到规则型报告。
 3. 提供 CSV/Excel 数据模板、Excel 工作表选择、数据画像工具，用于真实数据接入前的检查和阈值评估。
 4. 另有一条独立的**商品目录/价格监控**分支：使用 Shopify 目录快照与价格/库存事件，生成价格变动、缺货、补货、新上架报告；不与每日销售日报混用。
+5. 用你提供的商品目录生成一份**明确标注模拟字段的销售演示数据**，可以立刻跑通完整日报；模拟销售字段不能用于真实业务校准。
 
 > 阶段二只做分析与建议，**不自动改价、不自动发布、不操作真实电商账户**。所有涉及业务动作的建议都标记为需人工确认。
 
@@ -106,6 +107,22 @@ python run.py
 
 生成 `reports/catalog/YYYY-MM-DD_catalog_report.md`。该分支只分析目录、价格、可用性，不计算订单、销售额、PV/UV，也不调用大模型。
 
+### 完整日报演示（真实目录 + 模拟销售）
+
+```powershell
+# 1) 用目录生成模拟销售面板
+.venv\Scripts\python.exe tools\build_shopify_sales_demo.py `
+  --catalog "D:\olist电商数据\shopify-products-dataset-sample\data\catalog_sample_500.csv" `
+  --days 60 --end-date 2026-07-31
+
+# 2) 跑完整日报
+.venv\Scripts\python.exe run.py `
+  --data data\derived\shopify_catalog_sales_demo.csv `
+  --date 2026-07-31 --no-ai --report-dir reports\shopify_demo
+```
+
+订单、PV/UV、销售额、退款、成本、库存是模拟字段；商品名称、店铺、类目、单价来自目录。详见 `docs/shopify_sales_demo.md`。
+
 ---
 
 ## 3. 输出
@@ -114,6 +131,7 @@ python run.py
 |---|---|
 | 日报 | `reports/YYYY-MM-DD_daily_report.md` |
 | 目录/价格监控报告 | `reports/catalog/YYYY-MM-DD_catalog_report.md` |
+| 演示日报 | `reports/shopify_demo/YYYY-MM-DD_daily_report.md`（模拟销售字段） |
 | 历史日报语料 | `reports/history/`（已 gitignore，可重建） |
 | RAG 索引 | `data/rag/`（已 gitignore，可重建） |
 | AI 缓存 | `data/cache/ai/`（已 gitignore） |
@@ -149,6 +167,7 @@ python run.py
 │  ├─ llm/                      # GLM 客户端、提示词、结构化输出、AI 服务
 │  ├─ rag/                      # 语料切分、向量索引、检索器
 │  ├─ catalog/                  # 商品目录/价格事件监控（独立分支）
+│  ├─ demo/                     # 用目录生成模拟销售演示数据
 │  ├─ report/                   # Jinja2 报告渲染与模板
 │  └─ utils/                    # 日期、时区、文件工具
 ├─ knowledge/                   # 运营知识库（示例 SOP，需业务方审核）
@@ -157,6 +176,7 @@ python run.py
 │  ├─ create_data_template.py   # 生成 CSV/Excel 数据模板
 │  ├─ profile_data.py           # 真实数据画像与质量检查
 │  ├─ catalog_report.py         # 商品目录/价格监控报告
+│  ├─ build_shopify_sales_demo.py # 目录 + 模拟销售演示数据
 │  ├─ threshold_sensitivity.py  # 阈值敏感度工程测试
 │  ├─ build_reference_sample.py # 构建 UCI 参考样本
 │  ├─ build_history.py          # 生成历史日报语料
@@ -166,6 +186,7 @@ python run.py
 │  ├─ raw/                      # 真实数据（gitignore）
 │  ├─ templates/                # 数据模板（CSV/Excel）
 │  ├─ reference/                # UCI 公开参考样本（派生字段说明见 README）
+│  ├─ derived/                  # 目录 + 模拟销售演示数据（gitignore）
 │  ├─ rag/                      # 向量索引（gitignore）
 │  └─ cache/                    # AI 缓存（gitignore）
 ├─ reports/                     # 日报输出
@@ -182,7 +203,7 @@ python run.py
 .venv\Scripts\python.exe -m pytest
 ```
 
-当前共 **62 个测试**，覆盖：
+当前共 **65 个测试**，覆盖：
 
 - 指标计算与昨日对比、UV/PV 分母、缺失昨日、昨日为 0；
 - 3/5/7 自适应基线、历史不足、新品首日/第二天、均值为 0；
@@ -192,6 +213,7 @@ python run.py
 - AI：JSON 解析容错、未知来源过滤、限流重试、缓存命中、失败降级、方向一致性检查；
 - Excel：中文表头映射、工作表选择、旧版 .xls 拒绝、模板生成、Excel 端到端；
 - 目录监控：零价格、缺货、价格变动、事件统计、报告渲染、缺字段报错；
+- 演示数据：确定性生成、字段范围、订单不超过 PV/UV、退款不超过销售额、缺字段报错；
 - LangGraph 端到端、报告 12 个章节、AI 报告渲染、同日覆盖、日志 run_id、缺失文件快速失败。
 
 ---
@@ -219,6 +241,7 @@ python run.py
 - 当前知识库为示例 SOP，不是真实平台政策；RAG 检索结果可能不完整。
 - Excel 支持 `.xlsx`；旧版 `.xls` 需另存为 `.xlsx`。默认读取第一个工作表，可用 `--sheet` 指定。
 - 商品目录分支只有单日快照/价格事件，不能计算订单、销售额、PV/UV；它不能替代销售日报。
+- `data/derived/shopify_catalog_sales_demo.csv` 的订单/流量/销售额/退款/成本/库存是模拟值，只用于演示，不能用于真实阈值校准。
 - 不假设已有真实电商平台 API；阶段三只处理本地 CSV/Excel。
 - 不做定时调度；阶段四处理。
 
@@ -229,7 +252,7 @@ python run.py
 | 阶段 | 内容 |
 |---|---|
 | 阶段二 | 已完成：GLM-4.7-Flash、RAG、结构化建议、限流重试、失败降级、缓存 |
-| 阶段三 | CSV/Excel、模板、数据画像、参考样本、阈值敏感度、商品目录监控已就绪；等待订单/流量真实样例校准销售日报阈值 |
+| 阶段三 | CSV/Excel、模板、数据画像、参考样本、阈值敏感度、商品目录监控、目录+模拟销售演示已就绪；等待订单/流量真实样例校准销售日报阈值 |
 | 阶段四 | APScheduler 每日 09:00、并发防护、Windows 任务计划程序 |
 | 阶段五 | 历史记录、日期对比、建议有效性、通知与看板；可选其他嵌入模型 |
 
@@ -245,6 +268,7 @@ RAG 当前使用智谱 `embedding-3`（1024 维），与 GLM 共用一把 Key；
 - `docs/runbook.md`：运行、排错、配置调整、数据替换
 - `docs/threshold_sensitivity_reference.md`：参考样本阈值敏感度工程测试结果（不作为业务定案）
 - `docs/data_assessment_shopify_catalog.md`：你提供的 Shopify 目录样本评估（缺订单/流量，不适合直接跑日报）
+- `docs/shopify_sales_demo.md`：目录 + 模拟销售演示数据的生成、运行和限制
 
 ## 10. 安全
 

@@ -121,6 +121,25 @@ uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 - 目录样本与价格事件样本可能没有变体交集，不能直接关联；
 - 数据许可为 CC BY-NC 4.0，商用前需确认商业许可。
 
+### 2.6 完整日报演示（真实目录 + 模拟销售）
+
+```powershell
+# 生成 60 天模拟销售面板
+.venv\Scripts\python.exe tools\build_shopify_sales_demo.py `
+  --catalog "D:\olist电商数据\shopify-products-dataset-sample\data\catalog_sample_500.csv" `
+  --days 60 --end-date 2026-07-31
+
+# 跑完整日报
+.venv\Scripts\python.exe run.py `
+  --data data\derived\shopify_catalog_sales_demo.csv `
+  --date 2026-07-31 --no-ai --report-dir reports\shopify_demo
+```
+
+- 真实字段：商品ID、名称、店铺、类目、单价；
+- 模拟字段：订单、PV/UV、销售额、退款、成本、库存；
+- 只用于看完整 Agent 效果，**不能用于真实阈值校准**；
+- 详见 `docs/shopify_sales_demo.md`。
+
 ---
 
 ## 3. 运行
@@ -194,7 +213,7 @@ RAG 检索块   : 12 / 索引 141
 预期：
 
 ```text
-62 passed
+65 passed
 ```
 
 测试覆盖指标、基线、异常边界、数据校验、RAG 切分/检索、AI JSON 解析/重试/缓存/降级、端到端工作流、报告章节、同日覆盖、日志 run_id、缺失文件快速失败。
@@ -327,6 +346,7 @@ AI 与 RAG 参数在 `config/settings.yaml` 的 `llm` / `rag` 段：
 - [ ] `tools/create_data_template.py` 能生成 CSV/Excel 模板
 - [ ] `tools/profile_data.py` 能输出表头、空值、质量、日期覆盖、数值分布
 - [ ] `tools/catalog_report.py` 能生成目录/价格监控报告
+- [ ] `tools/build_shopify_sales_demo.py` 能生成可跑通的模拟销售演示数据
 - [ ] RAG 索引可构建，检索结果带来源与相似度
 - [ ] AI 成功时报告包含摘要、事实、原因、建议、引用
 - [ ] AI 失败时报告仍生成，并明确标注规则型降级
