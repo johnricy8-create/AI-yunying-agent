@@ -101,6 +101,17 @@ class LoggingConfig:
 
 
 @dataclass(frozen=True)
+class SchedulerConfig:
+    hour: int
+    minute: int
+    misfire_grace_seconds: int
+    max_retries: int
+    retry_delay_seconds: int
+    lock_file: Path
+    stale_lock_seconds: int
+
+
+@dataclass(frozen=True)
 class LLMConfig:
     enabled: bool
     provider: str
@@ -188,6 +199,7 @@ class Settings:
     anomaly: AnomalyConfig
     report: ReportConfig
     logging: LoggingConfig
+    scheduler: SchedulerConfig
     llm: LLMConfig
     rag: RAGConfig
     fields: FieldsConfig
@@ -346,6 +358,7 @@ def load_settings(
     anomaly_raw = _section(raw, "anomaly")
     report_raw = _section(raw, "report")
     logging_raw = _section(raw, "logging")
+    scheduler_raw = _section(raw, "scheduler")
     llm_raw = _section(raw, "llm")
     rag_raw = _section(raw, "rag")
 
@@ -501,6 +514,42 @@ def load_settings(
     if retention_days < 1:
         raise ConfigError("logging.retention_days 必须 >= 1")
 
+    scheduler_hour = _as_int(_require(scheduler_raw, "hour", "scheduler"), "scheduler.hour")
+    scheduler_minute = _as_int(
+        _require(scheduler_raw, "minute", "scheduler"), "scheduler.minute"
+    )
+    misfire_grace = _as_int(
+        _require(scheduler_raw, "misfire_grace_seconds", "scheduler"),
+        "scheduler.misfire_grace_seconds",
+    )
+    schedule_retries = _as_int(
+        _require(scheduler_raw, "max_retries", "scheduler"), "scheduler.max_retries"
+    )
+    retry_delay = _as_int(
+        _require(scheduler_raw, "retry_delay_seconds", "scheduler"),
+        "scheduler.retry_delay_seconds",
+    )
+    lock_file = resolve_path(
+        _as_str(_require(scheduler_raw, "lock_file", "scheduler"), "scheduler.lock_file"),
+        project_root,
+    )
+    stale_lock_seconds = _as_int(
+        _require(scheduler_raw, "stale_lock_seconds", "scheduler"),
+        "scheduler.stale_lock_seconds",
+    )
+    if not (0 <= scheduler_hour <= 23):
+        raise ConfigError("scheduler.hour 必须在 0–23 之间")
+    if not (0 <= scheduler_minute <= 59):
+        raise ConfigError("scheduler.minute 必须在 0–59 之间")
+    if misfire_grace < 0:
+        raise ConfigError("scheduler.misfire_grace_seconds 必须 >= 0")
+    if schedule_retries < 0:
+        raise ConfigError("scheduler.max_retries 必须 >= 0")
+    if retry_delay < 0:
+        raise ConfigError("scheduler.retry_delay_seconds 必须 >= 0")
+    if stale_lock_seconds < 1:
+        raise ConfigError("scheduler.stale_lock_seconds 必须 >= 1")
+
     llm_enabled = _as_bool(_require(llm_raw, "enabled", "llm"), "llm.enabled")
     llm_provider = _as_str(_require(llm_raw, "provider", "llm"), "llm.provider")
     llm_model = os.getenv("LLM_MODEL", "").strip() or _as_str(
@@ -647,6 +696,15 @@ def load_settings(
             level=log_level,
             filename=log_filename,
             retention_days=retention_days,
+        ),
+        scheduler=SchedulerConfig(
+            hour=scheduler_hour,
+            minute=scheduler_minute,
+            misfire_grace_seconds=misfire_grace,
+            max_retries=schedule_retries,
+            retry_delay_seconds=retry_delay,
+            lock_file=lock_file,
+            stale_lock_seconds=stale_lock_seconds,
         ),
         llm=LLMConfig(
             enabled=llm_enabled,

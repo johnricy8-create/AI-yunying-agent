@@ -40,6 +40,7 @@ AI 调用失败、限流、超时或 JSON 无效时，自动回退到规则型�
 | RAG 层 | `ecom_ops/rag/`、`knowledge/` | 语料切分、向量索引、余弦检索 |
 | 目录分支 | `ecom_ops/catalog/` | Shopify 目录快照、价格/库存事件、目录报告；与销售日报独立 |
 | 演示分支 | `ecom_ops/demo/` | 用目录 + 明确标注的模拟销售字段跑通完整日报 |
+| 调度层 | `scheduler.py`、`ecom_ops/scheduler/` | 每日 09:00、文件锁、有限重试、Windows 常驻 |
 | 大模型层 | `ecom_ops/llm/` | GLM 客户端、提示词、JSON 校验、重试、缓存、降级 |
 | 编排层 | `ecom_ops/graph/` | StateGraph、状态契约、节点实现 |
 | 报告层 | `ecom_ops/report/` | Jinja2 模板、Markdown 渲染、原子写入 |
@@ -251,7 +252,18 @@ Shopify catalog 快照 + price_changes 事件
 
 ---
 
-## 9. 扩展点
+## 9. 定时执行
+
+- 入口：`scheduler.py`
+- 调度：APScheduler `BlockingScheduler` + `CronTrigger`，每天 `Asia/Shanghai` 09:00。
+- 防并发：`max_instances=1` + `logs/scheduler.lock` 文件锁；锁超过 6 小时自动清理。
+- 重试：失败最多 2 次，间隔 300 秒，可配置。
+- 手动测试：`--run-now`；临时改时间：`--time HH:MM`。
+- Windows：任务计划程序在登录/开机时启动 `scheduler.py`；关机/休眠/进程退出不会执行，需要唤醒与“错过任务后尽快启动”设置。
+
+---
+
+## 10. 扩展点
 
 | 阶段 | 扩展方式 |
 |---|---|

@@ -12,6 +12,7 @@ __pycache__/
 
 # Runtime output
 logs/*.log*
+logs/*.lock
 reports/*.md
 reports/history/
 reports/archive/

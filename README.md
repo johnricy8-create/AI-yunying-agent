@@ -9,6 +9,7 @@
 3. 提供 CSV/Excel 数据模板、Excel 工作表选择、数据画像工具，用于真实数据接入前的检查和阈值评估。
 4. 另有一条独立的**商品目录/价格监控**分支：使用 Shopify 目录快照与价格/库存事件，生成价格变动、缺货、补货、新上架报告；不与每日销售日报混用。
 5. 用你提供的商品目录生成一份**明确标注模拟字段的销售演示数据**，可以立刻跑通完整日报；模拟销售字段不能用于真实业务校准。
+6. 阶段四定时执行：每天北京时间 09:00 自动跑，文件锁防并发，失败有限重试；Windows 用任务计划程序长期运行。
 
 > 阶段二只做分析与建议，**不自动改价、不自动发布、不操作真实电商账户**。所有涉及业务动作的建议都标记为需人工确认。
 
@@ -82,6 +83,24 @@ python run.py
 
 默认读取你提供的 Shopify 目录样本；如果路径不同，用 `--catalog` / `--changes` 指定。
 
+### 定时任务（每天 09:00）
+
+```powershell
+# 常驻进程，每天北京时间 09:00 执行
+.venv\Scripts\python.exe scheduler.py
+
+# 立即执行一次，用于测试；不等待第二天
+.venv\Scripts\python.exe scheduler.py --run-now --data data\derived\shopify_catalog_sales_demo.csv --date 2026-07-31 --no-ai
+
+# 临时调整执行时间（测试用）
+.venv\Scripts\python.exe scheduler.py --time 09:05
+
+# 定时任务不调用 AI
+.venv\Scripts\python.exe scheduler.py --no-ai
+```
+
+Windows 长期运行：用“任务计划程序”在登录/开机时启动 `scheduler.py`，本进程常驻并按 09:00 触发。电脑关机、休眠或进程退出时不会执行；需要配置“唤醒计算机”或“错过任务后尽快启动”。
+
 ### 常用参数
 
 ```powershell
@@ -151,6 +170,7 @@ python run.py
 | RAG 索引 | `data/rag/`（已 gitignore，可重建） |
 | AI 缓存 | `data/cache/ai/`（已 gitignore） |
 | 日志 | `logs/ecom_ops.log`（按天轮转，默认保留 30 天） |
+| 调度锁 | `logs/scheduler.lock`（运行期间临时存在） |
 | 运营知识库 | `knowledge/`（需业务方审核） |
 | 模拟数据 | `data/mock/sales_mock.csv` |
 | 数据模板 | `data/templates/sales_data_template.csv` / `.xlsx` |
@@ -167,6 +187,7 @@ python run.py
 
 ```text
 ├─ run.py                       # 手动运行入口
+├─ scheduler.py                 # 每天 09:00 定时任务入口
 ├─ requirements.txt             # 精确锁定依赖
 ├─ .python-version              # 3.12
 ├─ .env.example                 # 配置样例（不含密钥）
@@ -183,6 +204,7 @@ python run.py
 │  ├─ rag/                      # 语料切分、向量索引、检索器
 │  ├─ catalog/                  # 商品目录/价格事件监控（独立分支）
 │  ├─ demo/                     # 用目录生成模拟销售演示数据
+│  ├─ scheduler/                # 定时执行、锁、重试
 │  ├─ report/                   # Jinja2 报告渲染与模板
 │  └─ utils/                    # 日期、时区、文件工具
 ├─ knowledge/                   # 运营知识库（示例 SOP，需业务方审核）
@@ -219,7 +241,7 @@ python run.py
 .venv\Scripts\python.exe -m pytest
 ```
 
-当前共 **66 个测试**，覆盖：
+当前共 **70 个测试**，覆盖：
 
 - 指标计算与昨日对比、UV/PV 分母、缺失昨日、昨日为 0；
 - 3/5/7 自适应基线、历史不足、新品首日/第二天、均值为 0；
@@ -230,6 +252,7 @@ python run.py
 - Excel：中文表头映射、工作表选择、旧版 .xls 拒绝、模板生成、Excel 端到端；
 - 目录监控：零价格、缺货、价格变动、事件统计、报告渲染、缺字段报错；
 - 演示数据：确定性生成、字段范围、订单不超过 PV/UV、退款不超过销售额、缺字段报错；
+- 定时任务：时间解析、文件锁、单次执行、报告生成、调度器注册；
 - LangGraph 端到端、报告 12 个章节、AI 报告渲染、同日覆盖、日志 run_id、缺失文件快速失败。
 
 ---
@@ -259,7 +282,7 @@ python run.py
 - 商品目录分支只有单日快照/价格事件，不能计算订单、销售额、PV/UV；它不能替代销售日报。
 - `data/derived/shopify_catalog_sales_demo.csv` 的订单/流量/销售额/退款/成本/库存是模拟值，只用于演示，不能用于真实阈值校准。
 - 不假设已有真实电商平台 API；阶段三只处理本地 CSV/Excel。
-- 不做定时调度；阶段四处理。
+- 定时任务依赖进程常驻；电脑关机、休眠或程序退出时不会执行，需要 Windows 任务计划程序与唤醒设置配合。
 
 ---
 
@@ -269,7 +292,7 @@ python run.py
 |---|---|
 | 阶段二 | 已完成：GLM-4.7-Flash、RAG、结构化建议、限流重试、失败降级、缓存 |
 | 阶段三 | CSV/Excel、模板、数据画像、参考样本、阈值敏感度、商品目录监控、目录+模拟销售演示已就绪；等待订单/流量真实样例校准销售日报阈值 |
-| 阶段四 | APScheduler 每日 09:00、并发防护、Windows 任务计划程序 |
+| 阶段四 | 已完成：APScheduler 每日 09:00、文件锁防并发、有限重试、手动/临时时间测试、Windows 任务计划程序说明 |
 | 阶段五 | 历史记录、日期对比、建议有效性、通知与看板；可选其他嵌入模型 |
 
 RAG 当前使用智谱 `embedding-3`（1024 维），与 GLM 共用一把 Key；BGE-M3 不再作为默认方案。

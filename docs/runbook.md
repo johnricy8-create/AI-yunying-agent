@@ -217,6 +217,43 @@ RAG 检索块   : 12 / 索引 141
 
 不传 `--date` 时默认 D-1（北京时间）；如果数据中不存在 D-1，会自动回退到最新可用日期，并在日志中给出 warning。
 
+### 3.3 定时任务（阶段四）
+
+```powershell
+# 常驻进程，每天北京时间 09:00 执行
+.venv\Scripts\python.exe scheduler.py
+
+# 立即执行一次，便于测试
+.venv\Scripts\python.exe scheduler.py --run-now --no-ai --data data\derived\shopify_catalog_sales_demo.csv --date 2026-07-31
+
+# 临时改成 09:05 触发（不用等到第二天）
+.venv\Scripts\python.exe scheduler.py --time 09:05
+
+# 定时任务不调用 AI
+.venv\Scripts\python.exe scheduler.py --no-ai
+```
+
+机制：
+
+- APScheduler `CronTrigger`，时区 `Asia/Shanghai`；
+- `max_instances=1` + `logs/scheduler.lock` 文件锁，防止定时任务和手动运行并发；
+- 锁文件超过 6 小时视为上次进程异常退出，会自动清理；
+- 失败最多重试 2 次，每次间隔 300 秒（可在 `settings.yaml` 的 `scheduler` 段调整）；
+- 每次执行都走完整工作流，日志记录 run_id、状态、报告路径。
+
+Windows 任务计划程序建议：
+
+1. 创建任务，触发器选“登录时”或“计算机启动时”；
+2. 操作：启动程序
+   - 程序：`D:\ai运营agent\.venv\Scripts\python.exe`
+   - 参数：`D:\ai运营agent\scheduler.py`
+   - 起始于：`D:\ai运营agent`
+3. 勾选“不管用户是否登录都要运行”（需要保存凭据）；
+4. 勾选“如果错过计划开始时间，请尽快启动任务”；
+5. 如需休眠中唤醒，勾选“唤醒计算机运行此任务”。
+
+注意：电脑关机、休眠、程序退出时定时任务不会执行；任务计划程序只负责把常驻进程拉起来，真正 09:00 触发由 APScheduler 负责。
+
 ---
 
 ## 4. 测试
@@ -228,7 +265,7 @@ RAG 检索块   : 12 / 索引 141
 预期：
 
 ```text
-66 passed
+70 passed
 ```
 
 测试覆盖指标、基线、异常边界、数据校验、RAG 切分/检索、AI JSON 解析/重试/缓存/降级、端到端工作流、报告章节、同日覆盖、日志 run_id、缺失文件快速失败。
@@ -364,6 +401,9 @@ AI 与 RAG 参数在 `config/settings.yaml` 的 `llm` / `rag` 段：
 - [ ] `tools/build_shopify_sales_demo.py` 能生成可跑通的模拟销售演示数据
 - [ ] `tools/run_demo.py` 能一键生成目录报告和演示日报
 - [ ] 日报顶部有数据来源说明（演示数据会标注模拟字段）
+- [ ] `scheduler.py --run-now` 能执行一次并释放锁
+- [ ] `scheduler.py` 能常驻并按 09:00 触发
+- [ ] 两次执行不会并发（文件锁生效）
 - [ ] RAG 索引可构建，检索结果带来源与相似度
 - [ ] AI 成功时报告包含摘要、事实、原因、建议、引用
 - [ ] AI 失败时报告仍生成，并明确标注规则型降级
@@ -376,7 +416,7 @@ AI 与 RAG 参数在 `config/settings.yaml` 的 `llm` / `rag` 段：
 ## 9. 后续阶段
 
 - 阶段三：CSV/Excel、模板、数据画像已完成；等待脱敏真实样例后校准阈值。
-- 阶段四：APScheduler 每日 09:00、并发防护、Windows 任务计划程序。
+- 阶段四：已完成 APScheduler 每日 09:00、文件锁、有限重试、Windows 任务计划程序说明。
 - 阶段五：历史记录、建议有效性、通知与看板；可评估其他嵌入模型。
 
 当前不提供定时任务；电脑关机、休眠或程序退出时不会自动执行，这是阶段四要解决的问题。

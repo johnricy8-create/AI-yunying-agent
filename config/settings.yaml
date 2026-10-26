@@ -94,6 +94,19 @@ rag:
   min_score: 0.15
   embedding_batch_size: 32
 
+scheduler:
+  # 每天北京时间 09:00
+  hour: 9
+  minute: 0
+  # 电脑短暂休眠/任务延迟时，允许多久内补跑
+  misfire_grace_seconds: 3600
+  # 失败后的有限重试
+  max_retries: 2
+  retry_delay_seconds: 300
+  lock_file: logs/scheduler.lock
+  # 锁文件超过 6 小时视为上次进程异常退出
+  stale_lock_seconds: 21600
+
 logging:
   level: INFO
   filename: ecom_ops.log
