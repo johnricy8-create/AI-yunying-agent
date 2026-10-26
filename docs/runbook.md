@@ -155,6 +155,46 @@ uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 
 日报会把数据来源说明写入报告顶部；演示数据的销售/流量/成本/库存会明确标注为模拟值。
 
+### 2.8 天猫订单经营分析（真实订单级数据）
+
+```powershell
+.venv\Scripts\python.exe tools\tmall_report.py `
+  --data "D:\天猫销售数据\Tmall_Tableau_Visualization_Project\data\tmall_order_report.csv"
+```
+
+默认输出：
+
+```text
+reports/tmall/2020-02_tmall_order_report.md
+```
+
+报告内容：
+
+- 数据质量：GBK 编码、表头尾空格、错误/重复/警告、零实付、退款、缺失日期；
+- 核心 KPI：下单、支付、成交、全价成交、支付率、成交率、客单价；
+- 转化漏斗；
+- 每日成交（按付款日）和每日漏斗（按订单创建日）；
+- 省份 Top 10、支付净额 Top 时段、星期分布；
+- 关键发现与数据限制。
+
+口径：
+
+- 下单 = 有效订单；
+- 支付 = 有付款时间；
+- 成交 = 实际支付金额 > 0；
+- 全价成交 = 成交且总金额 = 实际支付金额；
+- 零实付/全额退款 = 已支付但实际支付金额 = 0；
+- 支付订单满足 `总金额 = 实际支付 + 退款`，实际支付是退款后净额，**不要再减退款**。
+
+当前样本结果：28,010 单、24,087 支付、18,955 成交、5,132 零实付、实际支付净额 1,902,487.15、退款 572,335.92。按创建日缺少 2020-02-08、2020-02-16；按付款日缺少 2020-02-16。报告只标注日期缺口，不自动判定为异常。
+
+注意：
+
+- 这是订单级、单月数据，没有 SKU/PV/UV/库存，不能做商品级日报；
+- `reports/tmall/` 已 gitignore；
+- 与源 Tableau/SQL 项目数字可能因清洗版本不同而有差异，本分支以当前 CSV 重新计算；
+- 详见 `docs/tmall_order_analysis.md`。
+
 ---
 
 ## 3. 运行
@@ -339,10 +379,10 @@ reports/exports/ops_history_YYYYMMDD-HHMMSS.xlsx
 预期：
 
 ```text
-76 passed
+79 passed
 ```
 
-测试覆盖指标、基线、异常边界、数据校验、RAG 切分/检索、AI JSON 解析/重试/缓存/降级、端到端工作流、报告章节、同日覆盖、日志 run_id、缺失文件快速失败。
+测试覆盖指标、基线、异常边界、数据校验、RAG 切分/检索、AI JSON 解析/重试/缓存/降级、端到端工作流、报告章节、同日覆盖、日志 run_id、缺失文件快速失败、天猫 GBK 数据/重复订单/漏斗口径/缺失日期/报告渲染。
 
 ---
 
@@ -411,7 +451,7 @@ AI 与 RAG 参数在 `config/settings.yaml` 的 `llm` / `rag` 段：
 
 ## 6. 数据替换
 
-当前仅支持 CSV。可以把任意符合字段字典的 CSV 传给 `--data`：
+商品级日报支持 CSV 与 `.xlsx`；天猫订单分支当前只支持 CSV。可以把任意符合字段字典的文件传给 `--data`：
 
 ```powershell
 # CSV
@@ -451,6 +491,7 @@ AI 与 RAG 参数在 `config/settings.yaml` 的 `llm` / `rag` 段：
 | `统计日期 ... 没有可用数据` | 指定日期不在数据中 | 查看日志中的可用日期范围，换 `--date` |
 | `数据校验后没有可用行` | 数据质量问题太多 | 查看报告/日志中的数据质量摘要，修正源数据 |
 | `报告写入失败` | 文件被占用/无权限 | 关闭打开的 Excel/Markdown 预览，或换 `--report-dir` |
+| 天猫报告读取失败 | 路径错误、文件不是 CSV 或编码异常 | 用 `--data` 指向 `tmall_order_report.csv`；加载器支持 GBK/UTF-8，当前分支只支持 CSV |
 | YAML 解析错误 | 缩进/冒号写错 | 按 `settings.yaml` 原有缩进修正 |
 | `pytest` 命令找不到 | 未激活虚拟环境 | 使用 `.venv\Scripts\python.exe -m pytest` |
 | `1305 该模型当前访问量过大` | 智谱免费模型平台过载 | 等待后重跑；可临时用 `--no-ai` 出规则型报告 |
@@ -472,6 +513,7 @@ AI 与 RAG 参数在 `config/settings.yaml` 的 `llm` / `rag` 段：
 - [ ] `tools/create_data_template.py` 能生成 CSV/Excel 模板
 - [ ] `tools/profile_data.py` 能输出表头、空值、质量、日期覆盖、数值分布
 - [ ] `tools/catalog_report.py` 能生成目录/价格监控报告
+- [ ] `tools/tmall_report.py` 能读取真实天猫 CSV 并生成订单级报告
 - [ ] `tools/build_shopify_sales_demo.py` 能生成可跑通的模拟销售演示数据
 - [ ] `tools/run_demo.py` 能一键生成目录报告和演示日报
 - [ ] 日报顶部有数据来源说明（演示数据会标注模拟字段）
@@ -497,4 +539,4 @@ AI 与 RAG 参数在 `config/settings.yaml` 的 `llm` / `rag` 段：
 - 阶段四：已完成 APScheduler 每日 09:00、文件锁、有限重试、Windows 任务计划程序说明。
 - 阶段五：已完成历史记录、商品对比、建议后续观察、静态看板；通知与真实人工反馈可继续扩展。
 
-当前不提供定时任务；电脑关机、休眠或程序退出时不会自动执行，这是阶段四要解决的问题。
+定时任务已提供（阶段四）；电脑关机、休眠或程序退出时仍不会执行，需要 Windows 任务计划程序与唤醒设置配合。

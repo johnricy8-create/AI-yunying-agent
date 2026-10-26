@@ -1,0 +1,158 @@
+# 天猫订单经营分析 · {{ date_min }} ~ {{ date_max }}
+
+> 报告生成时间：{{ report_time }} ｜ 数据文件：`{{ source_path }}`
+> 数据编码：{{ quality.encoding }} ｜ 总行数：{{ quality.total_rows|fmt_int }} ｜ 有效/隔离：{{ quality.valid_rows|fmt_int }} / {{ quality.invalid_rows|fmt_int }}
+> 付款日期范围：{{ payment_date_min or '—' }} ~ {{ payment_date_max or '—' }}
+
+> **核心口径**：下单 = 所有有效订单；支付 = 有付款时间；成交 = 实际支付金额 > 0；全价成交 = 成交且总金额 = 实际支付金额；零实付/全额退款 = 已支付但实际支付金额为 0。
+> 源数据支付订单满足 **总金额 = 实际支付 + 退款**，因此“实际支付金额”是退款后的净额，报告不再二次扣减退款。
+
+---
+
+## 1. 数据质量
+
+| 项目 | 数值 |
+|---|---:|
+| 总订单行 | {{ quality.total_rows|fmt_int }} |
+| 有效订单 | {{ quality.valid_rows|fmt_int }} |
+| 隔离订单 | {{ quality.invalid_rows|fmt_int }} |
+| 重复订单号 | {{ quality.duplicate_order_ids|fmt_int }} |
+| 支付订单 | {{ quality.paid_rows|fmt_int }} |
+| 零实付订单 | {{ quality.zero_paid_rows|fmt_int }} |
+| 退款订单 | {{ quality.refund_rows|fmt_int }} |
+| 支付订单金额恒等式通过率 | {{ quality.paid_identity_rate|fmt_pct }} |
+| 按创建日无订单日期 | {{ missing_created_dates|join('、') if missing_created_dates else '无' }} |
+| 按付款日无支付日期 | {{ missing_payment_dates|join('、') if missing_payment_dates else '无' }} |
+
+{% if quality.error_counts %}
+**错误类型**
+
+| 代码 | 次数 |
+|---|---:|
+{% for code, count in quality.error_counts.items() %}
+| `{{ code }}` | {{ count|fmt_int }} |
+{% endfor %}
+{% endif %}
+
+{% if quality.warning_counts %}
+**警告类型**
+
+| 代码 | 次数 |
+|---|---:|
+{% for code, count in quality.warning_counts.items() %}
+| `{{ code }}` | {{ count|fmt_int }} |
+{% endfor %}
+{% endif %}
+
+{% if quality.issues %}
+**问题样例**
+
+| 行号 | 订单号 | 代码 | 说明 |
+|---:|---|---|---|
+{% for issue in quality.issues[:10] %}
+| {{ issue.row_number }} | {{ issue.order_id|md }} | `{{ issue.code }}` | {{ issue.message|md }} |
+{% endfor %}
+{% endif %}
+
+---
+
+## 2. 核心 KPI
+
+| 指标 | 数值 |
+|---|---:|
+| 下单数 | {{ funnel.placed_count|fmt_int }} |
+| 支付数 | {{ funnel.paid_count|fmt_int }} |
+| 成交数（实付 > 0） | {{ funnel.completed_count|fmt_int }} |
+| 全价成交数 | {{ funnel.full_price_count|fmt_int }} |
+| 零实付/全额退款数 | {{ funnel.zero_paid_count|fmt_int }} |
+| 支付率（支付/下单） | {{ funnel.placed_to_paid|fmt_pct }} |
+| 成交率（成交/下单） | {{ funnel.placed_to_completed|fmt_pct }} |
+| 成交率（成交/支付） | {{ funnel.paid_to_completed|fmt_pct }} |
+| 支付订单原金额 | {{ kpis.original_paid_sum|fmt_money }} |
+| 退款金额 | {{ kpis.refund_sum|fmt_money }} |
+| 实际支付净额 | {{ kpis.paid_sum|fmt_money }} |
+| 退款金额占原金额 | {{ kpis.refund_amount_ratio|fmt_pct }} |
+| 退款订单数 | {{ funnel.refund_order_count|fmt_int }} |
+| 退款订单率（退款订单/支付订单） | {{ kpis.refund_order_rate|fmt_pct }} |
+| 成交客单价 | {{ kpis.completed_aov|fmt_money }} |
+| 全价成交客单价 | {{ kpis.full_price_aov|fmt_money }} |
+| 未支付订单金额 | {{ kpis.unpaid_amount|fmt_money }} |
+
+---
+
+## 3. 转化漏斗
+
+| 阶段 | 订单数 | 相对下单 | 相对上一阶段 |
+|---|---:|---:|---:|
+| 下单 | {{ funnel.placed_count|fmt_int }} | 100.00% | — |
+| 支付 | {{ funnel.paid_count|fmt_int }} | {{ funnel.placed_to_paid|fmt_pct }} | {{ funnel.placed_to_paid|fmt_pct }} |
+| 成交（实付 > 0） | {{ funnel.completed_count|fmt_int }} | {{ funnel.placed_to_completed|fmt_pct }} | {{ funnel.paid_to_completed|fmt_pct }} |
+| 全价成交 | {{ funnel.full_price_count|fmt_int }} | — | {{ funnel.completed_to_full_price|fmt_pct }} |
+
+> 零实付/全额退款 {{ funnel.zero_paid_count|fmt_int }} 单，未计入成交；它们会计入支付数和退款订单数。
+
+---
+
+## 4. 每日成交（按付款日）
+
+| 日期 | 支付订单 | 成交 | 全价成交 | 退款订单 | 实际支付净额 | 退款金额 | 支付订单原金额 | 客单价 | 退款订单率 | 退款金额占比 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+{% for row in daily %}
+| {{ row.date }}{% if row.missing %}（无支付/缺失）{% endif %} | {{ row.paid_orders|fmt_int }} | {{ row.completed|fmt_int }} | {{ row.full_price|fmt_int }} | {{ row.refund_orders|fmt_int }} | {{ row.paid_amount|fmt_money }} | {{ row.refund_amount|fmt_money }} | {{ row.original_amount|fmt_money }} | {{ row.aov|fmt_money }} | {{ row.refund_order_rate|fmt_pct }} | {{ row.refund_amount_ratio|fmt_pct }} |
+{% endfor %}
+
+---
+
+## 5. 每日漏斗（按订单创建日）
+
+| 日期 | 下单 | 支付 | 成交 | 全价成交 | 零实付 | 支付率 | 成交率 | 全价率 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+{% for row in funnel_daily %}
+| {{ row.date }}{% if row.missing %}（无订单/缺失）{% endif %} | {{ row.placed|fmt_int }} | {{ row.paid|fmt_int }} | {{ row.completed|fmt_int }} | {{ row.full_price|fmt_int }} | {{ row.zero_paid|fmt_int }} | {{ row.placed_to_paid|fmt_pct }} | {{ row.placed_to_completed|fmt_pct }} | {{ row.completed_to_full_price|fmt_pct }} |
+{% endfor %}
+
+---
+
+## 6. 省份分布 Top 10
+
+| 省份 | 下单 | 支付 | 成交 | 全价成交 | 实际支付净额 | 退款金额 | 支付率 | 成交率 | 客单价 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+{% for row in top_provinces %}
+| {{ row.province|md }} | {{ row.placed|fmt_int }} | {{ row.paid|fmt_int }} | {{ row.completed|fmt_int }} | {{ row.full_price|fmt_int }} | {{ row.paid_amount|fmt_money }} | {{ row.refund_amount|fmt_money }} | {{ row.paid_rate|fmt_pct }} | {{ row.completed_rate|fmt_pct }} | {{ row.aov|fmt_money }} |
+{% endfor %}
+
+---
+
+## 7. 退款与时段
+
+### 支付净额 Top 时段（按付款时间）
+
+| 时段 | 支付订单 | 成交 | 退款订单 | 实际支付净额 | 退款金额 | 客单价 | 退款订单率 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+{% for row in top_hours %}
+| {{ row.hour }} | {{ row.paid_orders|fmt_int }} | {{ row.completed|fmt_int }} | {{ row.refund_orders|fmt_int }} | {{ row.paid_amount|fmt_money }} | {{ row.refund_amount|fmt_money }} | {{ row.aov|fmt_money }} | {{ row.refund_order_rate|fmt_pct }} |
+{% endfor %}
+
+### 星期分布（按付款时间）
+
+| 星期 | 支付订单 | 成交 | 退款订单 | 实际支付净额 | 退款金额 | 客单价 | 退款订单率 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+{% for row in weekdays %}
+| {{ row.weekday }} | {{ row.paid_orders|fmt_int }} | {{ row.completed|fmt_int }} | {{ row.refund_orders|fmt_int }} | {{ row.paid_amount|fmt_money }} | {{ row.refund_amount|fmt_money }} | {{ row.aov|fmt_money }} | {{ row.refund_order_rate|fmt_pct }} |
+{% endfor %}
+
+---
+
+## 8. 关键发现
+
+{% for item in findings %}
+- {{ item }}
+{% endfor %}
+
+---
+
+## 9. 数据限制
+
+{% for item in limitations %}
+- {{ item }}
+{% endfor %}

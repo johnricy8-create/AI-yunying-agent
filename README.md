@@ -12,6 +12,7 @@
 6. 阶段四定时执行：每天北京时间 09:00 自动跑，文件锁防并发，失败有限重试；Windows 用任务计划程序长期运行。
 7. 阶段五历史复盘：SQLite 保存每日指标/异常/建议，支持重复异常、商品历史对比、建议后续变化观察。
 8. 本地静态 HTML 看板：每日趋势、Top 异常、重复异常、建议观察、目录/价格事件，双击即可看，不需要服务器。
+9. 另有一条独立的**天猫订单经营分析**分支：直接读取真实天猫订单 CSV（GBK、表头尾空格、28,010 单），生成 KPI、转化漏斗、每日成交、每日漏斗、省份和时段报告。该数据没有 SKU/PV/UV/库存，只做订单级分析，不混入商品级日报。
 
 > 阶段二只做分析与建议，**不自动改价、不自动发布、不操作真实电商账户**。所有涉及业务动作的建议都标记为需人工确认。
 
@@ -48,6 +49,9 @@ uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 
 # 3.3) 阈值敏感度工程测试（默认用公开参考样本，不改线上配置）
 .venv\Scripts\python.exe tools\threshold_sensitivity.py
+
+# 3.4) 天猫订单经营分析（真实订单级数据，路径不同时用 --data 指定）
+.venv\Scripts\python.exe tools\tmall_report.py
 
 # 4) 生成历史日报语料（可选，用于 RAG 历史案例）
 .venv\Scripts\python.exe tools\build_history.py
@@ -200,6 +204,23 @@ reports/exports/ops_history_YYYYMMDD-HHMMSS.xlsx
 
 生成 `reports/catalog/YYYY-MM-DD_catalog_report.md`。该分支只分析目录、价格、可用性，不计算订单、销售额、PV/UV，也不调用大模型。
 
+### 天猫订单经营分析（独立分支）
+
+```powershell
+.venv\Scripts\python.exe tools\tmall_report.py `
+  --data "D:\天猫销售数据\Tmall_Tableau_Visualization_Project\data\tmall_order_report.csv"
+```
+
+默认输出 `reports/tmall/2020-02_tmall_order_report.md`。报告包括：
+
+- 数据质量：GBK 编码、表头尾空格、重复订单、零实付、退款、缺失日期；
+- 核心 KPI：下单、支付、成交、全价成交、支付率、成交率、客单价；
+- 转化漏斗、每日成交（按付款日）、每日漏斗（按订单创建日）；
+- 省份 Top 10、支付净额 Top 时段、星期分布；
+- 关键发现与数据限制。
+
+口径：天猫原始数据为订单级，没有 SKU、PV/UV、库存；`成交 = 实际支付金额 > 0`，`全价成交 = 成交且总金额 = 实际支付金额`。源数据支付订单满足 **总金额 = 实际支付 + 退款**，所以实际支付是退款后的净额，报告不再二次扣减退款。
+
 ### 完整日报演示（真实目录 + 模拟销售）
 
 ```powershell
@@ -224,6 +245,7 @@ reports/exports/ops_history_YYYYMMDD-HHMMSS.xlsx
 |---|---|
 | 日报 | `reports/YYYY-MM-DD_daily_report.md` |
 | 目录/价格监控报告 | `reports/catalog/YYYY-MM-DD_catalog_report.md` |
+| 天猫订单经营分析 | `reports/tmall/2020-02_tmall_order_report.md`（真实订单级数据，已 gitignore） |
 | 演示日报 | `reports/shopify_demo/YYYY-MM-DD_daily_report.md`（模拟销售字段） |
 | 历史复盘 | `reports/history_review/ops_history_report.md` |
 | 可视化看板 | `reports/dashboard/index.html` |
@@ -266,6 +288,7 @@ reports/exports/ops_history_YYYYMMDD-HHMMSS.xlsx
 │  ├─ llm/                      # GLM 客户端、提示词、结构化输出、AI 服务
 │  ├─ rag/                      # 语料切分、向量索引、检索器
 │  ├─ catalog/                  # 商品目录/价格事件监控（独立分支）
+│  ├─ tmall/                    # 天猫订单级经营分析（独立分支）
 │  ├─ demo/                     # 用目录生成模拟销售演示数据
 │  ├─ scheduler/                # 定时执行、锁、重试
 │  ├─ history/                  # SQLite 历史、商品对比、建议追踪
@@ -278,6 +301,7 @@ reports/exports/ops_history_YYYYMMDD-HHMMSS.xlsx
 │  ├─ create_data_template.py   # 生成 CSV/Excel 数据模板
 │  ├─ profile_data.py           # 真实数据画像与质量检查
 │  ├─ catalog_report.py         # 商品目录/价格监控报告
+│  ├─ tmall_report.py           # 天猫订单经营分析报告
 │  ├─ build_shopify_sales_demo.py # 目录 + 模拟销售演示数据
 │  ├─ run_demo.py               # 一键演示（目录报告 + 模拟销售日报）
 │  ├─ history_report.py         # 历史复盘报告
@@ -296,7 +320,7 @@ reports/exports/ops_history_YYYYMMDD-HHMMSS.xlsx
 │  ├─ history/                  # SQLite 历史库（gitignore）
 │  ├─ rag/                      # 向量索引（gitignore）
 │  └─ cache/                    # AI 缓存（gitignore）
-├─ reports/                     # 日报输出
+├─ reports/                     # 日报、目录、天猫、看板、导出输出
 ├─ logs/                        # 运行日志
 ├─ tests/                       # pytest 测试
 └─ docs/                        # 架构、字段、决策、运行手册
@@ -310,7 +334,7 @@ reports/exports/ops_history_YYYYMMDD-HHMMSS.xlsx
 .venv\Scripts\python.exe -m pytest
 ```
 
-当前共 **76 个测试**，覆盖：
+当前共 **79 个测试**，覆盖：
 
 - 指标计算与昨日对比、UV/PV 分母、缺失昨日、昨日为 0；
 - 3/5/7 自适应基线、历史不足、新品首日/第二天、均值为 0；
@@ -325,6 +349,7 @@ reports/exports/ops_history_YYYYMMDD-HHMMSS.xlsx
 - 历史复盘：SQLite 写入/覆盖、重复异常、商品历史、建议效果分类、报告渲染；
 - 看板：数据组装、HTML 渲染、空历史、无外部 CDN；
 - Excel 导出：工作簿结构、行数、缺库报错；
+- 天猫订单分析：GBK/尾空格表头、错误行隔离、重复订单、漏斗、零实付/退款口径、缺失日期、报告渲染；
 - LangGraph 端到端、报告 12 个章节、AI 报告渲染、同日覆盖、日志 run_id、缺失文件快速失败。
 
 ---
@@ -352,6 +377,8 @@ reports/exports/ops_history_YYYYMMDD-HHMMSS.xlsx
 - 当前知识库为示例 SOP，不是真实平台政策；RAG 检索结果可能不完整。
 - Excel 支持 `.xlsx`；旧版 `.xls` 需另存为 `.xlsx`。默认读取第一个工作表，可用 `--sheet` 指定。
 - 商品目录分支只有单日快照/价格事件，不能计算订单、销售额、PV/UV；它不能替代销售日报。
+- 天猫分支是**订单级、单月**数据，没有 SKU、PV/UV、库存，不能做商品级异常日报，也不能直接校准商品级阈值；源文件实际为 GBK，且按创建日缺少 2020-02-08、2020-02-16。
+- 天猫支付订单满足“总金额 = 实际支付 + 退款”，实际支付是退款后的净额；报告不再二次扣减退款。
 - `data/derived/shopify_catalog_sales_demo.csv` 的订单/流量/销售额/退款/成本/库存是模拟值，只用于演示，不能用于真实阈值校准。
 - 不假设已有真实电商平台 API；阶段三只处理本地 CSV/Excel。
 - 定时任务依赖进程常驻；电脑关机、休眠或程序退出时不会执行，需要 Windows 任务计划程序与唤醒设置配合。
@@ -368,6 +395,8 @@ reports/exports/ops_history_YYYYMMDD-HHMMSS.xlsx
 | 阶段四 | 已完成：APScheduler 每日 09:00、文件锁防并发、有限重试、手动/临时时间测试、Windows 任务计划程序说明 |
 | 阶段五 | 已完成历史记录、商品对比、建议后续观察、静态看板；通知与真实人工反馈仍可扩展 |
 
+真实天猫订单数据已作为独立订单级分支接入，生成 KPI/漏斗/省份/时段报告；它不替代商品级销售日报，也不参与 v0.1 阈值校准。
+
 RAG 当前使用智谱 `embedding-3`（1024 维），与 GLM 共用一把 Key；BGE-M3 不再作为默认方案。
 
 ---
@@ -381,6 +410,7 @@ RAG 当前使用智谱 `embedding-3`（1024 维），与 GLM 共用一把 Key；
 - `docs/threshold_sensitivity_reference.md`：参考样本阈值敏感度工程测试结果（不作为业务定案）
 - `docs/data_assessment_shopify_catalog.md`：你提供的 Shopify 目录样本评估（缺订单/流量，不适合直接跑日报）
 - `docs/shopify_sales_demo.md`：目录 + 模拟销售演示数据的生成、运行和限制
+- `docs/tmall_order_analysis.md`：天猫真实订单数据的字段、口径、输出与限制
 
 ## 10. 安全
 

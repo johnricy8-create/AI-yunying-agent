@@ -51,3 +51,7 @@ class CatalogError(EcomOpsError):
 
 class HistoryError(EcomOpsError):
     """历史记录写入或查询失败。"""
+
+
+class TmallError(EcomOpsError):
+    """天猫订单数据读取或分析失败。"""
