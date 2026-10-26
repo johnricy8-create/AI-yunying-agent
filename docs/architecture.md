@@ -44,6 +44,7 @@ AI 调用失败、限流、超时或 JSON 无效时，自动回退到规则型�
 | 调度层 | `scheduler.py`、`ecom_ops/scheduler/` | 每日 09:00、文件锁、有限重试、Windows 常驻 |
 | 历史层 | `ecom_ops/history/`、`data/history/` | SQLite 历史、重复异常、商品对比、建议后续观察 |
 | 看板层 | `ecom_ops/dashboard/`、`tools/build_dashboard.py` | 本地静态 HTML 看板；无服务器/外部 CDN |
+| MVP 层 | `ecom_ops/mvp/`、`run_mvp.py`、`start_mvp.bat` | 统一入口页、模块发现、本地静态服务 |
 | 大模型层 | `ecom_ops/llm/` | GLM 客户端、提示词、JSON 校验、重试、缓存、降级 |
 | 编排层 | `ecom_ops/graph/` | StateGraph、状态契约、节点实现 |
 | 报告层 | `ecom_ops/report/` | Jinja2 模板、Markdown 渲染、原子写入 |
@@ -316,7 +317,26 @@ Shopify catalog 快照 + price_changes 事件
 
 ---
 
-## 12. 扩展点
+## 12. MVP 本地工作台
+
+```text
+run_mvp.py / start_mvp.bat
+  → 生成天猫 Markdown + HTML
+  → 扫描 reports/ 下可用模块
+  → 生成 reports/mvp/index.html
+  → 启动 127.0.0.1 静态服务并打开浏览器
+```
+
+- 入口页：`ecom_ops/mvp/landing.py` + `templates/mvp_index.html.j2`。
+- 模块发现：天猫看板/报告、商品级看板/最新日报、历史复盘、目录监控、Excel 导出；不存在的模块显示生成提示。
+- 数据边界：真实天猫订单、商品级演示/历史数据、未配置通知在入口页明确区分。
+- 服务：Python 标准库 `ThreadingHTTPServer`，只绑定 `127.0.0.1`；无登录/权限/多租户/云端部署。
+- 端口冲突时自动尝试后续 5 个端口；`--no-serve` 只生成页面。
+- `reports/mvp/` 已 gitignore。
+
+---
+
+## 13. 扩展点
 
 | 阶段 | 扩展方式 |
 |---|---|

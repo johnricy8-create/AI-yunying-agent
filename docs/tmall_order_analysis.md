@@ -131,6 +131,14 @@ reports/tmall/2020-02_tmall_dashboard.html
 
 HTML 看板是纯静态页面，包含 KPI 卡片、转化漏斗、每日成交趋势、省份 Top 10、时段/星期、数据质量、来源与许可；不依赖服务器或外部 CDN。
 
+也可以从 MVP 统一入口打开：
+
+```powershell
+.venv\Scripts\python.exe run_mvp.py
+```
+
+入口页会把天猫看板/报告、商品级看板/日报、历史复盘、目录监控和 Excel 导出集中在一个本地页面。Windows 可双击 `start_mvp.bat`。
+
 `reports/tmall/` 已加入 `.gitignore`，真实订单报告和看板不进入 Git。
 
 ## 7. 限制

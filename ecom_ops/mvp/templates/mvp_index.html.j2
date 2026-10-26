@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>电商运营 Agent · MVP</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --ink: #1a2433;
+      --muted: #6b7585;
+      --line: #e4e8ee;
+      --brand: #ff5a1f;
+      --brand-dark: #d9470f;
+      --brand-soft: #fff0e8;
+      --blue: #2563eb;
+      --blue-soft: #eaf0ff;
+      --green: #087f5b;
+      --green-soft: #e7f8f1;
+      --amber: #9a5b00;
+      --amber-soft: #fff6e4;
+      --shadow: 0 10px 30px rgba(26, 36, 51, 0.07);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", Arial, sans-serif;
+      line-height: 1.6;
+    }
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 30px 22px 50px; }
+    header { margin-bottom: 18px; }
+    .eyebrow { color: var(--brand-dark); font-size: 12px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; }
+    h1 { margin: 4px 0 8px; font-size: 30px; letter-spacing: -0.02em; }
+    .sub { color: var(--muted); font-size: 13px; }
+    .pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .pill { display: inline-block; padding: 4px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+    .pill.green { background: var(--green-soft); color: var(--green); }
+    .pill.orange { background: var(--brand-soft); color: var(--brand-dark); }
+    .pill.blue { background: var(--blue-soft); color: var(--blue); }
+    .pill.amber { background: var(--amber-soft); color: var(--amber); }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+      gap: 18px;
+      padding: 22px;
+      border: 1px solid #ffd8c7;
+      border-radius: 16px;
+      background: linear-gradient(120deg, #fff8f3 0%, #ffffff 55%, #f6f9ff 100%);
+      box-shadow: var(--shadow);
+      margin: 18px 0;
+    }
+    .hero h2 { margin: 0 0 6px; font-size: 23px; }
+    .hero p { margin: 0; color: var(--muted); font-size: 13px; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 16px; }
+    .button {
+      display: inline-block;
+      padding: 9px 14px;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 700;
+      background: var(--brand);
+      color: #fff;
+    }
+    .button:hover { background: var(--brand-dark); text-decoration: none; }
+    .button.secondary { background: #fff; color: var(--brand-dark); border: 1px solid #ffc9b2; }
+    .button.secondary:hover { background: #fff5ef; }
+    .hero-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; align-content: start; }
+    .stat { background: rgba(255, 255, 255, 0.82); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+    .stat .k { color: var(--muted); font-size: 11px; }
+    .stat .v { font-size: 19px; font-weight: 800; margin-top: 1px; }
+    .stat .v.money { font-size: 16px; }
+    section { margin-bottom: 18px; }
+    .section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 10px; }
+    h2 { margin: 0; font-size: 19px; }
+    .section-head .count { color: var(--muted); font-size: 12px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      min-height: 150px;
+    }
+    .card.primary { border-top: 3px solid var(--brand); }
+    .card.unavailable { background: #fbfcfd; box-shadow: none; }
+    .card .top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+    .card h3 { margin: 0; font-size: 15px; }
+    .tag { flex: 0 0 auto; color: var(--muted); font-size: 10px; background: #f2f4f7; border-radius: 999px; padding: 2px 7px; white-space: nowrap; }
+    .card p { margin: 8px 0 12px; color: var(--muted); font-size: 12.5px; flex: 1; }
+    .card .open { font-size: 13px; font-weight: 700; }
+    .card .hint { color: var(--amber); font-size: 12px; background: var(--amber-soft); border-radius: 7px; padding: 7px 9px; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; box-shadow: var(--shadow); }
+    .panel h2 { margin-bottom: 8px; }
+    .list { margin: 6px 0 0; padding-left: 19px; }
+    .list li { margin: 6px 0; font-size: 13px; }
+    .commands { display: grid; gap: 8px; margin-top: 10px; }
+    code { background: #f2f4f7; border-radius: 5px; padding: 2px 5px; font-size: 12px; }
+    .command { display: block; background: #f8fafc; border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; color: #334155; overflow-x: auto; }
+    .warning { background: #fff8e8; border: 1px solid #f3d08b; color: #7a4a00; padding: 10px 12px; border-radius: 9px; font-size: 12.5px; margin: 12px 0; }
+    .source { color: var(--muted); font-size: 12px; margin-top: 12px; }
+    footer { margin-top: 26px; color: var(--muted); font-size: 12px; line-height: 1.8; }
+    @media (max-width: 820px) {
+      .hero { grid-template-columns: 1fr; }
+      .two-col { grid-template-columns: 1fr; }
+      h1 { font-size: 24px; }
+      .wrap { padding: 22px 14px 36px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">ECOMMERCE OPS AGENT · MVP</div>
+    <h1>电商运营 Agent</h1>
+    <div class="sub">本地只读运营工作台 · 生成时间：{{ generated_at }} · 报告根目录：{{ reports_root }}</div>
+    <div class="pills">
+      {% if tmall %}
+      <span class="pill green">真实天猫订单已接入</span>
+      {% else %}
+      <span class="pill amber">天猫数据未生成</span>
+      {% endif %}
+      <span class="pill blue">只读 · 不自动改价/发布</span>
+      <span class="pill orange">本地静态页面 · 无外部 CDN</span>
+      {% if available_count %}
+      <span class="pill green">{{ available_count }} 个可用模块</span>
+      {% endif %}
+    </div>
+  </header>
+
+  <div class="hero">
+    <div>
+      <h2>先看天猫真实订单看板</h2>
+      {% if tmall %}
+      <p>
+        {{ tmall.date_min }} ~ {{ tmall.date_max }}：
+        下单 {{ tmall.placed|fmt_int }}，支付 {{ tmall.paid|fmt_int }}，
+        成交 {{ tmall.completed|fmt_int }}；实际支付净额 {{ tmall.paid_sum|fmt_money }}。
+        订单级数据，不能替代商品级 PV/UV 日报。
+      </p>
+      <div class="hero-actions">
+        {% if tmall_paths.html %}
+        <a class="button" href="../{{ tmall_paths.html }}">打开天猫看板</a>
+        {% endif %}
+        {% if tmall_paths.md %}
+        <a class="button secondary" href="../{{ tmall_paths.md }}">查看 Markdown 报告</a>
+        {% endif %}
+      </div>
+      {% else %}
+      <p>本次没有新的天猫分析摘要；如果下方有可用的天猫入口，可直接打开已有结果。</p>
+      {% if tmall_error %}
+      <div class="warning">生成失败：{{ tmall_error }}</div>
+      {% endif %}
+      <div class="hero-actions">
+        {% if tmall_paths.md %}
+        <a class="button" href="../{{ tmall_paths.md }}">打开已生成报告</a>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="hero-stats">
+      {% if tmall %}
+      <div class="stat"><div class="k">下单</div><div class="v">{{ tmall.placed|fmt_int }}</div></div>
+      <div class="stat"><div class="k">支付率</div><div class="v">{{ tmall.paid_rate|fmt_pct }}</div></div>
+      <div class="stat"><div class="k">成交率</div><div class="v">{{ tmall.completed_rate|fmt_pct }}</div></div>
+      <div class="stat"><div class="k">实际支付净额</div><div class="v money">{{ tmall.paid_sum|fmt_money }}</div></div>
+      <div class="stat"><div class="k">退款金额</div><div class="v money">{{ tmall.refund_sum|fmt_money }}</div></div>
+      <div class="stat"><div class="k">退款金额占比</div><div class="v">{{ tmall.refund_ratio|fmt_pct }}</div></div>
+      {% else %}
+      <div class="stat"><div class="k">MVP 状态</div><div class="v">待数据</div></div>
+      <div class="stat"><div class="k">已生成模块</div><div class="v">{{ available_count }}</div></div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if tmall_error %}
+  <div class="warning">天猫模块提示：{{ tmall_error }}</div>
+  {% endif %}
+
+  <section>
+    <div class="section-head">
+      <h2>可用模块</h2>
+      <span class="count">{{ available_count }} / {{ cards|length }} 已生成</span>
+    </div>
+    <div class="grid">
+      {% for card in cards %}
+      <div class="card{% if card.kind == 'primary' %} primary{% endif %}{% if not card.available %} unavailable{% endif %}">
+        <div class="top">
+          <h3>{{ card.title }}</h3>
+          <span class="tag">{{ card.tag }}</span>
+        </div>
+        <p>{{ card.description }}</p>
+        {% if card.available %}
+        <a class="open" href="../{{ card.path }}">打开 →</a>
+        {% else %}
+        <div class="hint">{{ card.hint }}</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="two-col">
+    <div class="panel">
+      <h2>MVP 能做什么</h2>
+      <ul class="list">
+        <li>读取真实天猫订单，生成 KPI、漏斗、每日趋势、省份/时段和数据质量报告。</li>
+        <li>本地打开静态 HTML 看板，不需要服务器、数据库或外部 CDN。</li>
+        <li>保留商品级日报、目录监控、历史复盘、Excel 导出的入口。</li>
+        <li>所有分析只读；涉及改价、发布、资金的动作不自动执行。</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h2>当前边界</h2>
+      <ul class="list">
+        <li>天猫数据没有 SKU/PV/UV/库存，不能做商品级异常归因。</li>
+        <li>商品级真实订单/流量数据仍未接入，相关看板可能是演示或历史数据。</li>
+        <li>邮件/企业微信通知未配置；阈值 v0.1 未用真实业务数据校准。</li>
+        <li>数据来源：{{ source.name if source else '待生成' }}{% if source %}，{{ source.license }}{% endif %}。</li>
+      </ul>
+    </div>
+  </div>
+
+  <section class="panel">
+    <h2>常用命令</h2>
+    <p class="sub">在项目根目录运行；Windows 也可以双击 <code>start_mvp.bat</code>。</p>
+    <div class="commands">
+      {% for command in commands %}
+      <code class="command">{{ command }}</code>
+      {% endfor %}
+    </div>
+    {% if source %}
+    <div class="source">
+      数据来源：<a href="{{ source.url }}" target="_blank" rel="noreferrer">{{ source.name }}</a>
+      ｜ {{ source.license }} ｜ {{ source.note }}
+    </div>
+    {% endif %}
+  </section>
+
+  <footer>
+    <div>本页是本地静态 MVP 入口，不依赖服务器、外部 CDN 或大模型；页面内的报告/看板需要先由命令生成。</div>
+    <div>V1 只读：不会自动改价、发布商品、操作真实电商账户或执行资金动作。</div>
+  </footer>
+</div>
+</body>
+</html>

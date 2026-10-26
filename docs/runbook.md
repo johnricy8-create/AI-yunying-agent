@@ -199,6 +199,55 @@ reports/tmall/2020-02_tmall_dashboard.html
 - 与源 Tableau/SQL 项目数字可能因清洗版本不同而有差异，本分支以当前 CSV 重新计算；
 - 详见 `docs/tmall_order_analysis.md`。
 
+### 2.9 MVP 本地工作台
+
+一键生成天猫报告/看板、统一入口页，并启动本地静态服务：
+
+```powershell
+.venv\Scripts\python.exe run_mvp.py
+```
+
+默认地址：
+
+```text
+http://127.0.0.1:8765/mvp/index.html
+```
+
+只生成、不启动服务：
+
+```powershell
+.venv\Scripts\python.exe run_mvp.py --no-serve
+```
+
+其他参数：
+
+```powershell
+# 指定端口
+.venv\Scripts\python.exe run_mvp.py --port 9000
+
+# 不自动打开浏览器
+.venv\Scripts\python.exe run_mvp.py --no-open
+
+# 只刷新入口页，不重新跑天猫
+.venv\Scripts\python.exe run_mvp.py --skip-tmall --no-serve
+```
+
+Windows 可以直接双击项目根目录的 `start_mvp.bat`。
+
+入口页包含：
+
+- 天猫真实订单摘要和看板/报告入口；
+- 商品级看板、最新日报、历史复盘、目录监控、Excel 导出入口（存在才可点）；
+- MVP 能力边界和常用命令；
+- 数据来源/许可说明。
+
+注意：
+
+- 这是本地单用户静态 MVP，没有登录、权限、多租户和云端部署；
+- 服务只绑定 `127.0.0.1`，不要直接暴露到公网；
+- 端口被占用时会自动尝试后续 5 个端口；
+- 页面和报告都在 `reports/` 下，已 gitignore。
+
 ---
 
 ## 3. 运行
@@ -383,10 +432,10 @@ reports/exports/ops_history_YYYYMMDD-HHMMSS.xlsx
 预期：
 
 ```text
-79 passed
+81 passed
 ```
 
-测试覆盖指标、基线、异常边界、数据校验、RAG 切分/检索、AI JSON 解析/重试/缓存/降级、端到端工作流、报告章节、同日覆盖、日志 run_id、缺失文件快速失败、天猫 GBK 数据/重复订单/漏斗口径/缺失日期/报告渲染。
+测试覆盖指标、基线、异常边界、数据校验、RAG 切分/检索、AI JSON 解析/重试/缓存/降级、端到端工作流、报告章节、同日覆盖、日志 run_id、缺失文件快速失败、天猫 GBK 数据/重复订单/漏斗口径/缺失日期/报告渲染，以及 MVP 入口页的模块发现和缺失模块提示。
 
 ---
 
@@ -518,6 +567,8 @@ AI 与 RAG 参数在 `config/settings.yaml` 的 `llm` / `rag` 段：
 - [ ] `tools/profile_data.py` 能输出表头、空值、质量、日期覆盖、数值分布
 - [ ] `tools/catalog_report.py` 能生成目录/价格监控报告
 - [ ] `tools/tmall_report.py` 能读取真实天猫 CSV 并生成订单级 Markdown 报告和 HTML 看板
+- [ ] `run_mvp.py --no-serve` 能生成 `reports/mvp/index.html`，且模块入口可打开
+- [ ] `start_mvp.bat` 能双击启动本地 MVP 服务
 - [ ] `tools/build_shopify_sales_demo.py` 能生成可跑通的模拟销售演示数据
 - [ ] `tools/run_demo.py` 能一键生成目录报告和演示日报
 - [ ] 日报顶部有数据来源说明（演示数据会标注模拟字段）

@@ -13,6 +13,7 @@
 7. 阶段五历史复盘：SQLite 保存每日指标/异常/建议，支持重复异常、商品历史对比、建议后续变化观察。
 8. 本地静态 HTML 看板：每日趋势、Top 异常、重复异常、建议观察、目录/价格事件，双击即可看，不需要服务器。
 9. 另有一条独立的**天猫订单经营分析**分支：直接读取真实天猫订单 CSV（GBK、表头尾空格、28,010 单），生成 KPI、转化漏斗、每日成交、每日漏斗、省份和时段报告。该数据没有 SKU/PV/UV/库存，只做订单级分析，不混入商品级日报。
+10. 本地 MVP 入口：`run_mvp.py` / `start_mvp.bat` 一次生成天猫报告、HTML 看板和统一工作台入口，并启动本地静态服务，浏览器直接使用。
 
 > 阶段二只做分析与建议，**不自动改价、不自动发布、不操作真实电商账户**。所有涉及业务动作的建议都标记为需人工确认。
 
@@ -52,6 +53,9 @@ uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 
 # 3.4) 天猫订单经营分析（真实订单级数据，路径不同时用 --data 指定）
 .venv\Scripts\python.exe tools\tmall_report.py
+
+# 3.5) MVP 一键启动：生成天猫报告/看板 + 统一入口，并启动本地服务
+.venv\Scripts\python.exe run_mvp.py
 
 # 4) 生成历史日报语料（可选，用于 RAG 历史案例）
 .venv\Scripts\python.exe tools\build_history.py
@@ -234,6 +238,36 @@ reports/tmall/2020-02_tmall_dashboard.html
 
 数据来源已通过网络检索确认：当前 28,010 条、7 字段数据与天池公开数据集[《天猫订单成交数据》](https://tianchi.aliyun.com/dataset/111551)一致，页面标注许可为 **CC BY-SA-NC 4.0（非商业）**；商用前需确认许可。报告和看板均已写入来源链接与许可说明。
 
+### MVP 本地工作台
+
+```powershell
+# 生成天猫报告/看板 + 统一入口，并启动 http://127.0.0.1:8765
+.venv\Scripts\python.exe run_mvp.py
+
+# 只生成，不启动服务
+.venv\Scripts\python.exe run_mvp.py --no-serve
+
+# 不自动打开浏览器
+.venv\Scripts\python.exe run_mvp.py --no-open
+
+# 只生成入口页，不重新跑天猫、不启动服务
+.venv\Scripts\python.exe run_mvp.py --skip-tmall --no-serve
+```
+
+Windows 可以直接双击：
+
+```text
+start_mvp.bat
+```
+
+入口页：
+
+```text
+reports/mvp/index.html
+```
+
+包含天猫真实订单摘要、可用模块入口（天猫看板/报告、商品级看板/日报、历史复盘、目录监控、Excel 导出）、MVP 能力边界和常用命令。它是本地单用户静态工作台，不包含登录、权限、数据库和云端部署。
+
 ### 完整日报演示（真实目录 + 模拟销售）
 
 ```powershell
@@ -260,6 +294,7 @@ reports/tmall/2020-02_tmall_dashboard.html
 | 目录/价格监控报告 | `reports/catalog/YYYY-MM-DD_catalog_report.md` |
 | 天猫订单经营分析 | `reports/tmall/2020-02_tmall_order_report.md`（真实订单级数据，已 gitignore） |
 | 天猫 HTML 看板 | `reports/tmall/2020-02_tmall_dashboard.html`（静态页面，已 gitignore） |
+| MVP 工作台 | `reports/mvp/index.html`（统一入口，已 gitignore） |
 | 演示日报 | `reports/shopify_demo/YYYY-MM-DD_daily_report.md`（模拟销售字段） |
 | 历史复盘 | `reports/history_review/ops_history_report.md` |
 | 可视化看板 | `reports/dashboard/index.html` |
@@ -286,6 +321,8 @@ reports/tmall/2020-02_tmall_dashboard.html
 
 ```text
 ├─ run.py                       # 手动运行入口
+├─ run_mvp.py                   # MVP 本地工作台入口（生成 + 本地服务）
+├─ start_mvp.bat                # Windows 双击启动 MVP
 ├─ scheduler.py                 # 每天 09:00 定时任务入口
 ├─ requirements.txt             # 精确锁定依赖
 ├─ .python-version              # 3.12
@@ -306,7 +343,8 @@ reports/tmall/2020-02_tmall_dashboard.html
 │  ├─ demo/                     # 用目录生成模拟销售演示数据
 │  ├─ scheduler/                # 定时执行、锁、重试
 │  ├─ history/                  # SQLite 历史、商品对比、建议追踪
-│  ├─ dashboard/                # 本地静态 HTML 看板
+│  ├─ dashboard/                # 商品级本地静态 HTML 看板
+│  ├─ mvp/                      # MVP 统一入口页与模块发现
 │  ├─ report/                   # Jinja2 报告渲染与模板
 │  └─ utils/                    # 日期、时区、文件工具
 ├─ knowledge/                   # 运营知识库（示例 SOP，需业务方审核）
@@ -348,7 +386,7 @@ reports/tmall/2020-02_tmall_dashboard.html
 .venv\Scripts\python.exe -m pytest
 ```
 
-当前共 **79 个测试**，覆盖：
+当前共 **81 个测试**，覆盖：
 
 - 指标计算与昨日对比、UV/PV 分母、缺失昨日、昨日为 0；
 - 3/5/7 自适应基线、历史不足、新品首日/第二天、均值为 0；
@@ -364,6 +402,7 @@ reports/tmall/2020-02_tmall_dashboard.html
 - 看板：数据组装、HTML 渲染、空历史、无外部 CDN；
 - Excel 导出：工作簿结构、行数、缺库报错；
 - 天猫订单分析：GBK/尾空格表头、错误行隔离、重复订单、漏斗、零实付/退款口径、缺失日期、Markdown 报告与 HTML 看板渲染；
+- MVP 入口：模块发现、缺失模块提示、真实数据摘要、来源/许可、无外部 CDN；
 - LangGraph 端到端、报告 12 个章节、AI 报告渲染、同日覆盖、日志 run_id、缺失文件快速失败。
 
 ---
@@ -394,6 +433,7 @@ reports/tmall/2020-02_tmall_dashboard.html
 - 天猫分支是**订单级、单月**数据，没有 SKU、PV/UV、库存，不能做商品级异常日报，也不能直接校准商品级阈值；源文件实际为 GBK，且按创建日缺少 2020-02-08、2020-02-16。
 - 天猫支付订单满足“总金额 = 实际支付 + 退款”，实际支付是退款后的净额；报告不再二次扣减退款。
 - 天猫数据来源为天池公开数据集《天猫订单成交数据》，页面标注 **CC BY-SA-NC 4.0**，非商业使用；商用前必须确认许可。
+- MVP 是本地单用户静态工作台：无登录/权限/多租户/云端部署，适合单机先跑通；不要直接暴露到公网。
 - `data/derived/shopify_catalog_sales_demo.csv` 的订单/流量/销售额/退款/成本/库存是模拟值，只用于演示，不能用于真实阈值校准。
 - 不假设已有真实电商平台 API；阶段三只处理本地 CSV/Excel。
 - 定时任务依赖进程常驻；电脑关机、休眠或程序退出时不会执行，需要 Windows 任务计划程序与唤醒设置配合。
