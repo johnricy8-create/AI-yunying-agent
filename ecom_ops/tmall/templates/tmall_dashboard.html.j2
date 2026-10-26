@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>天猫订单经营分析 · {{ date_min }} ~ {{ date_max }}</title>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --panel: #ffffff;
+      --ink: #1b2433;
+      --muted: #697386;
+      --line: #e5e8ee;
+      --brand: #ff5a1f;
+      --brand-dark: #d9470f;
+      --brand-soft: #fff0e8;
+      --blue: #2563eb;
+      --blue-soft: #e8efff;
+      --green: #07805b;
+      --green-soft: #e6f7f0;
+      --amber: #a15c00;
+      --amber-soft: #fff6e5;
+      --danger: #b42318;
+      --danger-soft: #feecea;
+      --shadow: 0 8px 26px rgba(27, 36, 51, 0.06);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", Arial, sans-serif;
+      line-height: 1.6;
+    }
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { max-width: 1280px; margin: 0 auto; padding: 30px 22px 48px; }
+    header { margin-bottom: 20px; }
+    .eyebrow {
+      color: var(--brand-dark);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    h1 { margin: 4px 0 8px; font-size: 30px; letter-spacing: -0.02em; }
+    .sub { color: var(--muted); font-size: 13px; }
+    .source {
+      margin-top: 10px;
+      padding: 10px 14px;
+      border: 1px solid #ffd8c7;
+      background: var(--brand-soft);
+      border-radius: 10px;
+      color: #7a3418;
+      font-size: 12px;
+    }
+    .source strong { color: var(--brand-dark); }
+    .banner {
+      margin-top: 10px;
+      padding: 10px 14px;
+      border: 1px solid #d8e2ff;
+      background: var(--blue-soft);
+      border-radius: 10px;
+      color: #1e3a8a;
+      font-size: 13px;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+      gap: 12px;
+      margin: 18px 0 22px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 15px 16px;
+      box-shadow: var(--shadow);
+    }
+    .card.accent { border-top: 3px solid var(--brand); }
+    .card .label { color: var(--muted); font-size: 12px; }
+    .card .value { font-size: 24px; font-weight: 800; margin-top: 3px; letter-spacing: -0.02em; }
+    .card .value.money { font-size: 21px; }
+    .card .hint { color: var(--muted); font-size: 11px; margin-top: 4px; }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 19px 20px;
+      margin-bottom: 18px;
+      box-shadow: var(--shadow);
+    }
+    h2 { margin: 0 0 6px; font-size: 19px; }
+    h3 { margin: 18px 0 8px; font-size: 15px; }
+    .section-sub { color: var(--muted); font-size: 12px; margin: 0 0 14px; }
+    .funnel { display: grid; gap: 10px; margin-top: 14px; }
+    .funnel-row {
+      display: grid;
+      grid-template-columns: 110px minmax(120px, 1fr) 170px;
+      gap: 12px;
+      align-items: center;
+    }
+    .funnel-label { font-size: 13px; font-weight: 700; }
+    .funnel-track { height: 16px; background: #f0f2f6; border-radius: 999px; overflow: hidden; }
+    .funnel-bar { height: 100%; border-radius: 999px; background: var(--brand); }
+    .funnel-row:nth-child(2) .funnel-bar { background: #ff8a5c; }
+    .funnel-row:nth-child(3) .funnel-bar { background: #ffb18f; }
+    .funnel-row:nth-child(4) .funnel-bar { background: #ffd1bf; }
+    .funnel-value { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
+    .funnel-value strong { font-size: 15px; }
+    .funnel-value span { color: var(--muted); margin-left: 6px; }
+    .note { color: var(--muted); font-size: 12px; margin-top: 12px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    th, td { padding: 8px 9px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; white-space: nowrap; }
+    th { color: var(--muted); font-weight: 700; background: #fafbfc; position: sticky; top: 0; }
+    th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    tr.missing td { color: var(--muted); background: #fffaf7; }
+    .tag {
+      display: inline-block;
+      margin-left: 5px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: var(--amber-soft);
+      color: var(--amber);
+      font-size: 10px;
+      vertical-align: 1px;
+    }
+    .mini-bar { height: 5px; min-width: 72px; background: #f0f2f6; border-radius: 999px; margin-top: 4px; overflow: hidden; }
+    .mini-bar i { display: block; height: 100%; background: var(--brand); border-radius: 999px; }
+    .two-col { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 18px; }
+    .quality-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 10px;
+      margin: 12px 0 14px;
+    }
+    .quality-item { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: #fcfcfd; }
+    .quality-item .k { color: var(--muted); font-size: 11px; }
+    .quality-item .v { font-size: 18px; font-weight: 800; margin-top: 2px; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; background: var(--green-soft); color: var(--green); }
+    .pill.warn { background: var(--amber-soft); color: var(--amber); }
+    .pill.danger { background: var(--danger-soft); color: var(--danger); }
+    .list { margin: 6px 0 0; padding-left: 19px; }
+    .list li { margin: 5px 0; font-size: 13px; }
+    .muted { color: var(--muted); }
+    footer { color: var(--muted); font-size: 12px; margin-top: 24px; line-height: 1.7; }
+    @media (max-width: 860px) {
+      .two-col { grid-template-columns: 1fr; }
+      .funnel-row { grid-template-columns: 86px minmax(80px, 1fr) 136px; }
+      h1 { font-size: 24px; }
+      .wrap { padding: 22px 14px 36px; }
+    }
+    @media print {
+      body { background: #fff; }
+      .wrap { max-width: none; padding: 0; }
+      section, .card { box-shadow: none; break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">TMALL ORDER ANALYTICS</div>
+    <h1>天猫订单经营分析</h1>
+    <div class="sub">
+      订单创建日期：{{ date_min }} ~ {{ date_max }} ｜ 付款日期：{{ payment_date_min or '—' }} ~ {{ payment_date_max or '—' }}
+      ｜ 生成时间：{{ generated_at }}
+    </div>
+    <div class="source">
+      数据来源：<strong>{{ source.name }}</strong>
+      ｜ <a href="{{ source.url }}" target="_blank" rel="noreferrer">天池公开数据集</a>
+      ｜ 许可：<strong>{{ source.license }}</strong>
+      ｜ {{ source.note }}
+    </div>
+    <div class="banner">
+      订单级看板：没有 SKU、PV/UV、库存，不能替代商品级日报。成交 = 实际支付金额 &gt; 0；实际支付金额是退款后净额（源数据满足 总金额 = 实际支付 + 退款），不再二次扣减退款。
+    </div>
+  </header>
+
+  <div class="cards">
+    <div class="card">
+      <div class="label">下单</div>
+      <div class="value">{{ funnel.placed_count|fmt_int }}</div>
+      <div class="hint">全部有效订单</div>
+    </div>
+    <div class="card">
+      <div class="label">支付</div>
+      <div class="value">{{ funnel.paid_count|fmt_int }}</div>
+      <div class="hint">支付率 {{ funnel.placed_to_paid|fmt_pct }}</div>
+    </div>
+    <div class="card">
+      <div class="label">成交（实付 &gt; 0）</div>
+      <div class="value">{{ funnel.completed_count|fmt_int }}</div>
+      <div class="hint">成交率 {{ funnel.placed_to_completed|fmt_pct }}</div>
+    </div>
+    <div class="card accent">
+      <div class="label">实际支付净额</div>
+      <div class="value money">{{ kpis.paid_sum|fmt_money }}</div>
+      <div class="hint">支付订单原金额 {{ kpis.original_paid_sum|fmt_money }}</div>
+    </div>
+    <div class="card">
+      <div class="label">退款金额</div>
+      <div class="value money">{{ kpis.refund_sum|fmt_money }}</div>
+      <div class="hint">占原金额 {{ kpis.refund_amount_ratio|fmt_pct }}</div>
+    </div>
+    <div class="card">
+      <div class="label">成交客单价</div>
+      <div class="value money">{{ kpis.completed_aov|fmt_money }}</div>
+      <div class="hint">全价成交 {{ funnel.full_price_count|fmt_int }} 单</div>
+    </div>
+    <div class="card">
+      <div class="label">退款订单</div>
+      <div class="value">{{ funnel.refund_order_count|fmt_int }}</div>
+      <div class="hint">退款订单率 {{ kpis.refund_order_rate|fmt_pct }}</div>
+    </div>
+    <div class="card">
+      <div class="label">零实付 / 全额退款</div>
+      <div class="value">{{ funnel.zero_paid_count|fmt_int }}</div>
+      <div class="hint">不计入成交</div>
+    </div>
+    <div class="card">
+      <div class="label">全价成交</div>
+      <div class="value">{{ funnel.full_price_count|fmt_int }}</div>
+      <div class="hint">占下单 {{ funnel.full_price_share|fmt_pct }}</div>
+    </div>
+  </div>
+
+  <section>
+    <h2>转化漏斗</h2>
+    <p class="section-sub">按订单数计算；成交口径为实际支付金额 &gt; 0，零实付/全额退款不计入成交。</p>
+    <div class="funnel">
+      <div class="funnel-row">
+        <div class="funnel-label">下单</div>
+        <div class="funnel-track"><div class="funnel-bar" style="width: 100%"></div></div>
+        <div class="funnel-value"><strong>{{ funnel.placed_count|fmt_int }}</strong><span>100.00%</span></div>
+      </div>
+      <div class="funnel-row">
+        <div class="funnel-label">支付</div>
+        <div class="funnel-track"><div class="funnel-bar" style="width: {{ funnel.paid_count|bar_width(funnel.placed_count) }}%"></div></div>
+        <div class="funnel-value"><strong>{{ funnel.paid_count|fmt_int }}</strong><span>{{ funnel.placed_to_paid|fmt_pct }}</span></div>
+      </div>
+      <div class="funnel-row">
+        <div class="funnel-label">成交</div>
+        <div class="funnel-track"><div class="funnel-bar" style="width: {{ funnel.completed_count|bar_width(funnel.placed_count) }}%"></div></div>
+        <div class="funnel-value"><strong>{{ funnel.completed_count|fmt_int }}</strong><span>{{ funnel.placed_to_completed|fmt_pct }}</span></div>
+      </div>
+      <div class="funnel-row">
+        <div class="funnel-label">全价成交</div>
+        <div class="funnel-track"><div class="funnel-bar" style="width: {{ funnel.full_price_count|bar_width(funnel.placed_count) }}%"></div></div>
+        <div class="funnel-value"><strong>{{ funnel.full_price_count|fmt_int }}</strong><span>{{ funnel.full_price_share|fmt_pct }}</span></div>
+      </div>
+    </div>
+    <div class="note">
+      支付到成交转化：{{ funnel.paid_to_completed|fmt_pct }} ｜
+      成交到全价成交：{{ funnel.completed_to_full_price|fmt_pct }} ｜
+      零实付/全额退款：{{ funnel.zero_paid_count|fmt_int }} 单
+    </div>
+  </section>
+
+  <section>
+    <h2>每日成交趋势（按付款日）</h2>
+    <p class="section-sub">
+      付款日期 {{ daily[0].date if daily else '—' }} ~ {{ daily[-1].date if daily else '—' }}；
+      退款金额占比 = 退款金额 ÷ 支付订单原金额。
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>日期</th>
+            <th class="num">支付订单</th>
+            <th class="num">成交</th>
+            <th class="num">退款订单</th>
+            <th>实际支付净额</th>
+            <th class="num">退款金额</th>
+            <th class="num">原金额</th>
+            <th class="num">客单价</th>
+            <th class="num">退款金额占比</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in daily %}
+          <tr{% if row.missing %} class="missing"{% endif %}>
+            <td>{{ row.date }}{% if row.missing %}<span class="tag">无支付/缺失</span>{% endif %}</td>
+            <td class="num">{{ row.paid_orders|fmt_int }}</td>
+            <td class="num">{{ row.completed|fmt_int }}</td>
+            <td class="num">{{ row.refund_orders|fmt_int }}</td>
+            <td>
+              <strong>{{ row.paid_amount|fmt_money }}</strong>
+              <div class="mini-bar"><i style="width: {{ row.paid_amount|bar_width(max_daily_paid) }}%"></i></div>
+            </td>
+            <td class="num">{{ row.refund_amount|fmt_money }}</td>
+            <td class="num">{{ row.original_amount|fmt_money }}</td>
+            <td class="num">{{ row.aov|fmt_money }}</td>
+            <td class="num">{{ row.refund_amount_ratio|fmt_pct }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="two-col">
+    <section>
+      <h2>省份分布 Top 10</h2>
+      <p class="section-sub">按实际支付净额排序；条长度相对最高省份。</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>省份</th>
+              <th>实际支付净额</th>
+              <th class="num">成交率</th>
+              <th class="num">退款金额占比</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in top_provinces %}
+            <tr>
+              <td>{{ row.province }}</td>
+              <td>
+                <strong>{{ row.paid_amount|fmt_money }}</strong>
+                <div class="mini-bar"><i style="width: {{ row.paid_amount|bar_width(max_province_paid) }}%"></i></div>
+              </td>
+              <td class="num">{{ row.completed_rate|fmt_pct }}</td>
+              <td class="num">{{ row.refund_amount_ratio|fmt_pct }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>时段与星期</h2>
+      <p class="section-sub">按付款时间统计；展示支付净额最高的 5 个时段。</p>
+      <h3>支付净额 Top 5 时段</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>时段</th>
+              <th class="num">支付订单</th>
+              <th class="num">成交</th>
+              <th class="num">实际支付净额</th>
+              <th class="num">退款订单率</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in top_hours %}
+            <tr>
+              <td>{{ row.hour }}</td>
+              <td class="num">{{ row.paid_orders|fmt_int }}</td>
+              <td class="num">{{ row.completed|fmt_int }}</td>
+              <td class="num">{{ row.paid_amount|fmt_money }}</td>
+              <td class="num">{{ row.refund_order_rate|fmt_pct }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <h3>星期分布</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>星期</th>
+              <th class="num">支付订单</th>
+              <th class="num">实际支付净额</th>
+              <th class="num">退款订单率</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in weekdays %}
+            <tr>
+              <td>{{ row.weekday }}</td>
+              <td class="num">{{ row.paid_orders|fmt_int }}</td>
+              <td class="num">{{ row.paid_amount|fmt_money }}</td>
+              <td class="num">{{ row.refund_order_rate|fmt_pct }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <section>
+    <h2>数据质量</h2>
+    <p class="section-sub">源文件为 GBK 编码、部分表头带尾空格；加载器已做编码回退、表头归一化和行级隔离。</p>
+    <div class="quality-grid">
+      <div class="quality-item"><div class="k">总行数</div><div class="v">{{ quality.total_rows|fmt_int }}</div></div>
+      <div class="quality-item"><div class="k">有效行</div><div class="v">{{ quality.valid_rows|fmt_int }}</div></div>
+      <div class="quality-item"><div class="k">隔离行</div><div class="v">{{ quality.invalid_rows|fmt_int }}</div></div>
+      <div class="quality-item"><div class="k">重复订单号</div><div class="v">{{ quality.duplicate_order_ids|fmt_int }}</div></div>
+      <div class="quality-item"><div class="k">支付订单</div><div class="v">{{ quality.paid_rows|fmt_int }}</div></div>
+      <div class="quality-item"><div class="k">零实付</div><div class="v">{{ quality.zero_paid_rows|fmt_int }}</div></div>
+      <div class="quality-item"><div class="k">退款订单</div><div class="v">{{ quality.refund_rows|fmt_int }}</div></div>
+      <div class="quality-item">
+        <div class="k">金额恒等式通过率</div>
+        <div class="v">{{ quality.paid_identity_rate|fmt_pct }}</div>
+      </div>
+    </div>
+    <p class="section-sub">
+      按创建日无订单：
+      <strong>{{ missing_created_dates|join('、') if missing_created_dates else '无' }}</strong>
+      ｜ 按付款日无支付：
+      <strong>{{ missing_payment_dates|join('、') if missing_payment_dates else '无' }}</strong>
+    </p>
+
+    {% if quality.warning_counts %}
+    <h3>警告类型</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>代码</th><th class="num">次数</th><th>说明</th></tr></thead>
+        <tbody>
+          {% for code, count in quality.warning_counts.items() %}
+          <tr>
+            <td><code>{{ code }}</code></td>
+            <td class="num">{{ count|fmt_int }}</td>
+            <td>
+              {% if code == 'paid_zero_amount' %}
+              已支付但实际支付为 0（通常为全额退款/取消），不计入成交
+              {% else %}
+              <span class="muted">见报告明细</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if quality.issues %}
+    <h3>问题样例</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>行号</th><th>订单号</th><th>代码</th><th>说明</th></tr></thead>
+        <tbody>
+          {% for issue in quality.issues[:8] %}
+          <tr>
+            <td>{{ issue.row_number }}</td>
+            <td>{{ issue.order_id }}</td>
+            <td><code>{{ issue.code }}</code></td>
+            <td>{{ issue.message }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </section>
+
+  <div class="two-col">
+    <section>
+      <h2>关键发现</h2>
+      <ul class="list">
+        {% for item in findings %}
+        <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+    <section>
+      <h2>数据限制</h2>
+      <ul class="list">
+        {% for item in limitations %}
+        <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+  </div>
+
+  <footer>
+    <div>生成时间：{{ generated_at }} ｜ 数据文件：{{ source_path }}</div>
+    <div>口径：下单 = 有效订单；支付 = 有付款时间；成交 = 实际支付金额 &gt; 0；全价成交 = 成交且总金额 = 实际支付金额；实际支付为退款后净额。</div>
+    <div>本页为纯静态 HTML，不依赖服务器、外部 CDN 或大模型；数据来源与许可：{{ source.name }}，{{ source.license }}。</div>
+  </footer>
+</div>
+</body>
+</html>

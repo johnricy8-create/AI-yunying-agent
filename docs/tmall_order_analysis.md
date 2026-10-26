@@ -8,7 +8,13 @@
 D:\天猫销售数据\Tmall_Tableau_Visualization_Project\data\tmall_order_report.csv
 ```
 
-这是天猫 2020 年 2 月的订单级交易数据，共 28,010 行、7 个字段。源项目是 SQL + Tableau 分析；本仓库直接读取原始 CSV，重新做清洗、核算和 Markdown 报告。
+这是天猫 2020 年 2 月的订单级交易数据，共 28,010 行、7 个字段。网络检索确认，它与天池公开数据集《天猫订单成交数据》一致：
+
+- 页面：<https://tianchi.aliyun.com/dataset/111551>
+- 许可：**CC BY-SA-NC 4.0**（非商业使用；商用前需确认许可）
+- 说明：公开数据可能存在清洗版本差异；本仓库以当前 CSV 重新计算。
+
+源项目是 SQL + Tableau 分析；本仓库直接读取原始 CSV，重新做清洗、核算，生成 Markdown 报告和静态 HTML 看板。
 
 | 原始字段 | 内部字段 | 说明 |
 |---|---|---|
@@ -20,7 +26,7 @@ D:\天猫销售数据\Tmall_Tableau_Visualization_Project\data\tmall_order_repor
 | 订单付款时间 | `paid_at` | 付款时间；未支付为空 |
 | 退款金额 | `refund_amount` | 支付后的退款金额；无退款为 0 |
 
-源文件实际编码是 **GBK**，不是源 README 写的 UTF-8；`收货地址 `、`订单付款时间 ` 两个表头带尾部空格。加载器会尝试 GBK → UTF-8-SIG → UTF-8，并统一去除表头空格。
+源文件实际编码是 **GBK**，不是源 README 写的 UTF-8；`收货地址 `、`订单付款时间 ` 两个表头带尾部空格。加载器会尝试 UTF-8-SIG → UTF-8 → GBK，并统一去除表头空格。
 
 ## 2. 为什么单独一条分支
 
@@ -35,7 +41,8 @@ D:\天猫销售数据\Tmall_Tableau_Visualization_Project\data\tmall_order_repor
 因此不能把它硬塞进 `product_id + pv + uv + orders` 的商品级 Agent，否则会产生虚假的商品、流量和转化率。天猫分支只做：
 
 ```text
-订单 CSV → 清洗/隔离 → 订单级 KPI → 漏斗 → 每日/省份/时段 → Markdown 报告
+订单 CSV → 清洗/隔离 → 订单级 KPI → 漏斗 → 每日/省份/时段
+  → Markdown 报告 + 静态 HTML 看板
 ```
 
 该分支不调用大模型，不写入商品级历史库，不参与 v0.1 阈值校准。
@@ -119,9 +126,12 @@ D:\天猫销售数据\Tmall_Tableau_Visualization_Project\data\tmall_order_repor
 
 ```text
 reports/tmall/2020-02_tmall_order_report.md
+reports/tmall/2020-02_tmall_dashboard.html
 ```
 
-`reports/tmall/` 已加入 `.gitignore`，真实订单报告不进入 Git。
+HTML 看板是纯静态页面，包含 KPI 卡片、转化漏斗、每日成交趋势、省份 Top 10、时段/星期、数据质量、来源与许可；不依赖服务器或外部 CDN。
+
+`reports/tmall/` 已加入 `.gitignore`，真实订单报告和看板不进入 Git。
 
 ## 7. 限制
 

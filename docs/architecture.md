@@ -39,7 +39,7 @@ AI 调用失败、限流、超时或 JSON 无效时，自动回退到规则型�
 | 分析层 | `ecom_ops/analysis/` | 指标、基线、异常规则、严重度评分 |
 | RAG 层 | `ecom_ops/rag/`、`knowledge/` | 语料切分、向量索引、余弦检索 |
 | 目录分支 | `ecom_ops/catalog/` | Shopify 目录快照、价格/库存事件、目录报告；与销售日报独立 |
-| 天猫分支 | `ecom_ops/tmall/` | 真实天猫订单 CSV、订单级 KPI/漏斗/日报；与商品级销售日报独立 |
+| 天猫分支 | `ecom_ops/tmall/` | 真实天猫订单 CSV、订单级 KPI/漏斗、Markdown 报告与静态 HTML 看板；与商品级销售日报独立 |
 | 演示分支 | `ecom_ops/demo/` | 用目录 + 明确标注的模拟销售字段跑通完整日报 |
 | 调度层 | `scheduler.py`、`ecom_ops/scheduler/` | 每日 09:00、文件锁、有限重试、Windows 常驻 |
 | 历史层 | `ecom_ops/history/`、`data/history/` | SQLite 历史、重复异常、商品对比、建议后续观察 |
@@ -269,7 +269,9 @@ Shopify catalog 快照 + price_changes 事件
 - 数据：28,010 条 2020 年 2 月真实订单；订单编号、金额、省份、创建/付款时间、退款金额。
 - 口径：支付 = 有付款时间；成交 = 实际支付金额 > 0；全价成交 = 总金额等于实际支付金额；零实付 = 已支付但实付为 0。
 - 关键事实：全部支付订单满足 `总金额 = 实际支付 + 退款`，实际支付是退款后净额，不能二次扣减退款。
-- 输出：`reports/tmall/2020-02_tmall_order_report.md`（gitignore）。
+- 输出：`reports/tmall/2020-02_tmall_order_report.md` 与 `reports/tmall/2020-02_tmall_dashboard.html`（均 gitignore）。
+- 看板：Jinja2 静态 HTML + 内联 CSS；KPI、漏斗、每日趋势、省份/时段/星期、数据质量；无服务器/外部 CDN。
+- 数据来源：天池公开数据集《天猫订单成交数据》，标注许可 CC BY-SA-NC 4.0，非商业使用。
 - 不计算 SKU/PV/UV/库存，不写入商品级历史库，不调用大模型，不参与 v0.1 阈值校准。
 
 ---

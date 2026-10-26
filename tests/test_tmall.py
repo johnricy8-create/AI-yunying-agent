@@ -5,6 +5,7 @@ import pytest
 
 from ecom_ops.exceptions import TmallError
 from ecom_ops.tmall.analyzer import analyze_tmall
+from ecom_ops.tmall.dashboard import render_tmall_dashboard
 from ecom_ops.tmall.loader import load_tmall_orders
 from ecom_ops.tmall.renderer import render_tmall_report
 from ecom_ops.utils.files import read_text
@@ -91,6 +92,15 @@ def test_tmall_load_analyze_and_render(tmp_path):
     assert "2020-02-02（无订单/缺失）" in content
     assert "上海" in content
     assert "2020-02-01" in content
+
+    dashboard_path = render_tmall_dashboard(analysis, tmp_path / "dashboard.html")
+    html = read_text(dashboard_path)
+    assert "天猫订单经营分析" in html
+    assert "转化漏斗" in html
+    assert "每日成交趋势" in html
+    assert "tianchi.aliyun.com/dataset/111551" in html
+    assert "CC BY-SA-NC 4.0" in html
+    assert "https://cdn" not in html
 
 
 def test_tmall_duplicate_order_keeps_last(tmp_path):

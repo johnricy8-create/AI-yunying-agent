@@ -166,6 +166,7 @@ uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 
 ```text
 reports/tmall/2020-02_tmall_order_report.md
+reports/tmall/2020-02_tmall_dashboard.html
 ```
 
 报告内容：
@@ -175,7 +176,8 @@ reports/tmall/2020-02_tmall_order_report.md
 - 转化漏斗；
 - 每日成交（按付款日）和每日漏斗（按订单创建日）；
 - 省份 Top 10、支付净额 Top 时段、星期分布；
-- 关键发现与数据限制。
+- 关键发现与数据限制；
+- 同步生成静态 HTML 看板：KPI 卡片、漏斗条、每日趋势、省份/时段/星期、数据质量、来源与许可。
 
 口径：
 
@@ -187,6 +189,8 @@ reports/tmall/2020-02_tmall_order_report.md
 - 支付订单满足 `总金额 = 实际支付 + 退款`，实际支付是退款后净额，**不要再减退款**。
 
 当前样本结果：28,010 单、24,087 支付、18,955 成交、5,132 零实付、实际支付净额 1,902,487.15、退款 572,335.92。按创建日缺少 2020-02-08、2020-02-16；按付款日缺少 2020-02-16。报告只标注日期缺口，不自动判定为异常。
+
+数据来源已通过网络检索确认：当前数据与天池公开数据集[《天猫订单成交数据》](https://tianchi.aliyun.com/dataset/111551)一致，页面标注许可为 **CC BY-SA-NC 4.0**，非商业使用；商用前需确认许可。Markdown 和 HTML 都已写入来源链接与许可说明。
 
 注意：
 
@@ -513,7 +517,7 @@ AI 与 RAG 参数在 `config/settings.yaml` 的 `llm` / `rag` 段：
 - [ ] `tools/create_data_template.py` 能生成 CSV/Excel 模板
 - [ ] `tools/profile_data.py` 能输出表头、空值、质量、日期覆盖、数值分布
 - [ ] `tools/catalog_report.py` 能生成目录/价格监控报告
-- [ ] `tools/tmall_report.py` 能读取真实天猫 CSV 并生成订单级报告
+- [ ] `tools/tmall_report.py` 能读取真实天猫 CSV 并生成订单级 Markdown 报告和 HTML 看板
 - [ ] `tools/build_shopify_sales_demo.py` 能生成可跑通的模拟销售演示数据
 - [ ] `tools/run_demo.py` 能一键生成目录报告和演示日报
 - [ ] 日报顶部有数据来源说明（演示数据会标注模拟字段）

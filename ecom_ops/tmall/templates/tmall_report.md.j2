@@ -1,6 +1,7 @@
 # 天猫订单经营分析 · {{ date_min }} ~ {{ date_max }}
 
 > 报告生成时间：{{ report_time }} ｜ 数据文件：`{{ source_path }}`
+> 数据来源：{{ source.name }}（[天池公开数据集]({{ source.url }})，{{ source.license }}）；{{ source.note }}
 > 数据编码：{{ quality.encoding }} ｜ 总行数：{{ quality.total_rows|fmt_int }} ｜ 有效/隔离：{{ quality.valid_rows|fmt_int }} / {{ quality.invalid_rows|fmt_int }}
 > 付款日期范围：{{ payment_date_min or '—' }} ~ {{ payment_date_max or '—' }}
 

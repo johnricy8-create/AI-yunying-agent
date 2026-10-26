@@ -22,6 +22,11 @@ import pandas as pd
 
 from ecom_ops.tmall.loader import load_tmall_orders
 
+SOURCE_NAME = "天猫订单成交数据"
+SOURCE_URL = "https://tianchi.aliyun.com/dataset/111551"
+SOURCE_LICENSE = "CC BY-SA-NC 4.0"
+SOURCE_NOTE = "订单级真实交易数据；页面标注许可为非商业使用，商用前需确认。"
+
 
 def _num(value: Any, digits: int = 2) -> float | None:
     if value is None or pd.isna(value):
@@ -154,6 +159,7 @@ def analyze_tmall(path: str | Path) -> dict[str, Any]:
         "paid_to_completed": _rate(completed_count, paid_count),
         "placed_to_completed": _rate(completed_count, placed_count),
         "completed_to_full_price": _rate(full_price_count, completed_count),
+        "full_price_share": _rate(full_price_count, placed_count),
     }
     kpis = {
         "total_amount_sum": _num(float(df["total_amount"].sum())),
@@ -325,11 +331,18 @@ def analyze_tmall(path: str | Path) -> dict[str, Any]:
         "按当前 CSV 直接计算的全价成交为 18,441 单；源 Tableau/SQL 项目展示 16,650 单，差异可能来自清洗版本，本报告未强行对齐。",
         "源项目 Tableau/SQL 的清洗版本可能与原始 CSV 有差异，本报告以当前 CSV 重新计算。",
         "省份、金额、时间均来自源数据；未做汇率、税费或平台佣金调整。",
+        "数据来源为天池公开数据集《天猫订单成交数据》，许可标注为 CC BY-SA-NC 4.0；非商业使用，商用前需确认许可。",
         "本报告不调用大模型，结论来自固定口径统计。",
     ]
 
     return {
         "source_path": str(path),
+        "source": {
+            "name": SOURCE_NAME,
+            "url": SOURCE_URL,
+            "license": SOURCE_LICENSE,
+            "note": SOURCE_NOTE,
+        },
         "quality": quality,
         "funnel": funnel,
         "kpis": kpis,

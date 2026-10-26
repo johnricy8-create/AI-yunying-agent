@@ -209,17 +209,30 @@ reports/exports/ops_history_YYYYMMDD-HHMMSS.xlsx
 ```powershell
 .venv\Scripts\python.exe tools\tmall_report.py `
   --data "D:\天猫销售数据\Tmall_Tableau_Visualization_Project\data\tmall_order_report.csv"
+
+# 只要 Markdown 报告，不生成 HTML
+.venv\Scripts\python.exe tools\tmall_report.py --no-html
 ```
 
-默认输出 `reports/tmall/2020-02_tmall_order_report.md`。报告包括：
+默认输出：
+
+```text
+reports/tmall/2020-02_tmall_order_report.md
+reports/tmall/2020-02_tmall_dashboard.html
+```
+
+报告包括：
 
 - 数据质量：GBK 编码、表头尾空格、重复订单、零实付、退款、缺失日期；
 - 核心 KPI：下单、支付、成交、全价成交、支付率、成交率、客单价；
 - 转化漏斗、每日成交（按付款日）、每日漏斗（按订单创建日）；
 - 省份 Top 10、支付净额 Top 时段、星期分布；
-- 关键发现与数据限制。
+- 关键发现与数据限制；
+- 同步生成纯静态 HTML 看板：KPI 卡片、漏斗条、每日趋势、省份/时段/星期、数据质量、来源与许可。
 
 口径：天猫原始数据为订单级，没有 SKU、PV/UV、库存；`成交 = 实际支付金额 > 0`，`全价成交 = 成交且总金额 = 实际支付金额`。源数据支付订单满足 **总金额 = 实际支付 + 退款**，所以实际支付是退款后的净额，报告不再二次扣减退款。
+
+数据来源已通过网络检索确认：当前 28,010 条、7 字段数据与天池公开数据集[《天猫订单成交数据》](https://tianchi.aliyun.com/dataset/111551)一致，页面标注许可为 **CC BY-SA-NC 4.0（非商业）**；商用前需确认许可。报告和看板均已写入来源链接与许可说明。
 
 ### 完整日报演示（真实目录 + 模拟销售）
 
@@ -246,6 +259,7 @@ reports/exports/ops_history_YYYYMMDD-HHMMSS.xlsx
 | 日报 | `reports/YYYY-MM-DD_daily_report.md` |
 | 目录/价格监控报告 | `reports/catalog/YYYY-MM-DD_catalog_report.md` |
 | 天猫订单经营分析 | `reports/tmall/2020-02_tmall_order_report.md`（真实订单级数据，已 gitignore） |
+| 天猫 HTML 看板 | `reports/tmall/2020-02_tmall_dashboard.html`（静态页面，已 gitignore） |
 | 演示日报 | `reports/shopify_demo/YYYY-MM-DD_daily_report.md`（模拟销售字段） |
 | 历史复盘 | `reports/history_review/ops_history_report.md` |
 | 可视化看板 | `reports/dashboard/index.html` |
@@ -288,7 +302,7 @@ reports/exports/ops_history_YYYYMMDD-HHMMSS.xlsx
 │  ├─ llm/                      # GLM 客户端、提示词、结构化输出、AI 服务
 │  ├─ rag/                      # 语料切分、向量索引、检索器
 │  ├─ catalog/                  # 商品目录/价格事件监控（独立分支）
-│  ├─ tmall/                    # 天猫订单级经营分析（独立分支）
+│  ├─ tmall/                    # 天猫订单级经营分析 + 静态 HTML 看板（独立分支）
 │  ├─ demo/                     # 用目录生成模拟销售演示数据
 │  ├─ scheduler/                # 定时执行、锁、重试
 │  ├─ history/                  # SQLite 历史、商品对比、建议追踪
@@ -301,7 +315,7 @@ reports/exports/ops_history_YYYYMMDD-HHMMSS.xlsx
 │  ├─ create_data_template.py   # 生成 CSV/Excel 数据模板
 │  ├─ profile_data.py           # 真实数据画像与质量检查
 │  ├─ catalog_report.py         # 商品目录/价格监控报告
-│  ├─ tmall_report.py           # 天猫订单经营分析报告
+│  ├─ tmall_report.py           # 天猫订单经营分析报告 + HTML 看板
 │  ├─ build_shopify_sales_demo.py # 目录 + 模拟销售演示数据
 │  ├─ run_demo.py               # 一键演示（目录报告 + 模拟销售日报）
 │  ├─ history_report.py         # 历史复盘报告
@@ -349,7 +363,7 @@ reports/exports/ops_history_YYYYMMDD-HHMMSS.xlsx
 - 历史复盘：SQLite 写入/覆盖、重复异常、商品历史、建议效果分类、报告渲染；
 - 看板：数据组装、HTML 渲染、空历史、无外部 CDN；
 - Excel 导出：工作簿结构、行数、缺库报错；
-- 天猫订单分析：GBK/尾空格表头、错误行隔离、重复订单、漏斗、零实付/退款口径、缺失日期、报告渲染；
+- 天猫订单分析：GBK/尾空格表头、错误行隔离、重复订单、漏斗、零实付/退款口径、缺失日期、Markdown 报告与 HTML 看板渲染；
 - LangGraph 端到端、报告 12 个章节、AI 报告渲染、同日覆盖、日志 run_id、缺失文件快速失败。
 
 ---
@@ -379,6 +393,7 @@ reports/exports/ops_history_YYYYMMDD-HHMMSS.xlsx
 - 商品目录分支只有单日快照/价格事件，不能计算订单、销售额、PV/UV；它不能替代销售日报。
 - 天猫分支是**订单级、单月**数据，没有 SKU、PV/UV、库存，不能做商品级异常日报，也不能直接校准商品级阈值；源文件实际为 GBK，且按创建日缺少 2020-02-08、2020-02-16。
 - 天猫支付订单满足“总金额 = 实际支付 + 退款”，实际支付是退款后的净额；报告不再二次扣减退款。
+- 天猫数据来源为天池公开数据集《天猫订单成交数据》，页面标注 **CC BY-SA-NC 4.0**，非商业使用；商用前必须确认许可。
 - `data/derived/shopify_catalog_sales_demo.csv` 的订单/流量/销售额/退款/成本/库存是模拟值，只用于演示，不能用于真实阈值校准。
 - 不假设已有真实电商平台 API；阶段三只处理本地 CSV/Excel。
 - 定时任务依赖进程常驻；电脑关机、休眠或程序退出时不会执行，需要 Windows 任务计划程序与唤醒设置配合。
