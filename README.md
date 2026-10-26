@@ -73,7 +73,7 @@ python run.py
 ### 一键演示
 
 ```powershell
-# 目录/价格报告 + 目录/模拟销售日报
+# 目录/价格报告 + 目录/模拟销售日报 + 可视化看板
 .venv\Scripts\python.exe tools\run_demo.py
 
 # 尝试调用 GLM（免费模型可能限流/超时）

@@ -106,6 +106,15 @@ def main() -> int:
         else:
             daily_args.append("--no-ai")
         _run(daily_args)
+
+        _run(
+            [
+                sys.executable,
+                "tools/build_dashboard.py",
+                "--output",
+                "reports/dashboard/index.html",
+            ]
+        )
     except subprocess.CalledProcessError as exc:
         print(f"演示步骤失败，退出码 {exc.returncode}", file=sys.stderr)
         return exc.returncode or 1
@@ -118,6 +127,7 @@ def main() -> int:
     print("一键演示完成")
     print("目录报告: reports/catalog/*_catalog_report.md")
     print(f"演示日报: reports/shopify_demo/{args.end_date}_daily_report.md")
+    print("可视化看板: reports/dashboard/index.html")
     print("说明: 销售/流量/成本/库存为模拟字段，仅用于演示，不可用于真实业务校准。")
     print("=" * 64)
     return 0

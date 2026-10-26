@@ -143,7 +143,7 @@ uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 ### 2.7 一键演示
 
 ```powershell
-# 目录报告 + 目录/模拟销售日报
+# 目录报告 + 目录/模拟销售日报 + 可视化看板
 .venv\Scripts\python.exe tools\run_demo.py
 
 # 尝试 AI（免费模型可能 1305/超时，失败自动降级）
