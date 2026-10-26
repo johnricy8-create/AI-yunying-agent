@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import math
-from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -57,9 +56,18 @@ _STATUS_LABELS = {
     "started": "开始",
     "data_loaded": "数据已加载",
     "analyzed": "分析完成",
-    "ai_skipped": "AI 未接入",
+    "ai_completed": "AI 分析完成",
+    "ai_degraded": "AI 已降级",
     "completed": "成功",
     "failed": "失败",
+}
+
+_AI_STATUS_LABELS = {
+    "ok": "成功",
+    "failed": "失败（已降级）",
+    "not_configured": "未配置",
+    "disabled": "未启用",
+    "skipped": "无异常，跳过",
 }
 
 
@@ -159,6 +167,7 @@ def _suggestion_groups(anomalies: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _manual_confirmations(
     anomalies: list[dict[str, Any]],
     data_quality: dict[str, Any],
+    ai_products: dict[str, Any] | None = None,
 ) -> list[str]:
     items: list[str] = []
     summary = data_quality.get("summary", {})
@@ -212,6 +221,22 @@ def _manual_confirmations(
     if stock_low:
         items.append("断货风险商品请确认补货计划：" + "、".join(stock_low[:10]))
 
+    for product_id, analysis in (ai_products or {}).items():
+        if not isinstance(analysis, dict):
+            continue
+        product_name = ""
+        for item in anomalies:
+            if str(item.get("product_id")) == str(product_id):
+                product_name = str(item.get("product_name", product_id))
+                break
+        for check in analysis.get("manual_checks", []) or []:
+            items.append(f"AI 建议人工核查（{product_name or product_id}）：{check}")
+        for recommendation in analysis.get("recommendations", []) or []:
+            if isinstance(recommendation, dict) and recommendation.get("needs_human"):
+                items.append(
+                    f"AI 建议需人工确认（{product_name or product_id}）：{recommendation.get('action', '')}"
+                )
+
     if not items:
         items.append("本报告未发现必须人工确认的阻断项，但仍建议抽查 Top 异常商品。")
     return items
@@ -246,6 +271,13 @@ def render_report(context: RunContext, state: AgentState) -> Path:
 
     global_summary = dict(state.get("global_summary", {}) or {})
     ai_result = dict(state.get("ai_result", {}) or {})
+    ai_products = dict(ai_result.get("products", {}) or {})
+    retrieval = dict(ai_result.get("retrieval", {}) or {})
+    retrieval_chunks = list(retrieval.get("chunks", []) or [])
+    ai_status = str(ai_result.get("status", "unknown"))
+    ai_status_label = _AI_STATUS_LABELS.get(ai_status, ai_status)
+    ai_error = str(ai_result.get("error") or "")[:500]
+    ai_message = str(ai_result.get("message") or "")
     report_time = format_datetime()
     status = str(state.get("status", ""))
     pipeline_status = _STATUS_LABELS.get(status, status or "—")
@@ -253,7 +285,7 @@ def render_report(context: RunContext, state: AgentState) -> Path:
     status_label = "成功（报告已生成）"
 
     data_limitations: list[str] = [
-        "阶段一未接入大模型；AI 原因分析章节为占位，不构成模型结论。",
+        "指标与异常由 Python 规则计算；AI 内容仅在调用成功时提供辅助分析，不替代业务验证。",
         "统计日期默认为运行日的前一天（D-1）；如需补跑，可在命令行显式指定日期。",
         "基线采用 3/5/7 日均值，按近期波动自适应选择；无法处理周内规律与季节性，开学季等正常波动可能被误判。",
         "缺失日期不插值；基线只使用有效历史数据。",
@@ -280,6 +312,30 @@ def render_report(context: RunContext, state: AgentState) -> Path:
         )
     if global_summary.get("warning"):
         data_limitations.append(str(global_summary["warning"]))
+
+    if ai_status == "ok":
+        data_limitations.append(
+            "AI 分析基于本次指标与检索资料生成，可能存在遗漏或推断错误，所有建议需人工确认。"
+        )
+    elif ai_status == "failed":
+        data_limitations.append(
+            "本次 AI 分析失败，报告已回退到规则型建议；可稍后重跑或检查模型限流/网络。"
+        )
+    elif ai_status in {"disabled", "not_configured"}:
+        data_limitations.append("本次未调用大模型，报告仅包含规则型建议。")
+    if retrieval.get("selected_count"):
+        data_limitations.append(
+            f"本次检索到 {retrieval.get('selected_count')} 个知识片段；检索结果可能不完整。"
+        )
+        data_limitations.append(
+            "历史日报片段可能来自其他商品或日期，AI 引用仅用于追溯，不代表当前商品事实。"
+        )
+    if retrieval.get("error"):
+        data_limitations.append(f"RAG 状态：{retrieval.get('error')}")
+    if settings.rag.enabled:
+        data_limitations.append(
+            "当前知识库为阶段二示例 SOP，需业务方审核后替换为真实运营知识。"
+        )
 
     environment = Environment(
         loader=FileSystemLoader(str(TEMPLATE_DIR)),
@@ -317,8 +373,20 @@ def render_report(context: RunContext, state: AgentState) -> Path:
             other_type_counts=other_type_counts,
             top_n=top_n,
             ai_result=ai_result,
+            ai_products=ai_products,
+            ai_status=ai_status,
+            ai_status_label=ai_status_label,
+            ai_error=ai_error,
+            ai_message=ai_message,
+            ai_model=ai_result.get("model", ""),
+            ai_provider=ai_result.get("provider", ""),
+            ai_latency=ai_result.get("latency_seconds"),
+            ai_cached=bool(ai_result.get("cached", False)),
+            ai_generated_at=ai_result.get("generated_at", ""),
+            retrieval=retrieval,
+            retrieval_chunks=retrieval_chunks,
             suggestion_groups=_suggestion_groups(top_anomalies),
-            manual_confirmations=_manual_confirmations(anomalies, data_quality),
+            manual_confirmations=_manual_confirmations(anomalies, data_quality, ai_products),
             data_limitations=data_limitations,
             description_max_chars=settings.report.description_max_chars,
             anomaly_config=settings.anomaly,

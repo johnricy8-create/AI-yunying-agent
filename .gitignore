@@ -13,7 +13,10 @@ __pycache__/
 # Runtime output
 logs/*.log*
 reports/*.md
+reports/history/
 reports/archive/
+data/rag/
+data/cache/
 
 # Real business data must never enter the repository
 data/raw/*

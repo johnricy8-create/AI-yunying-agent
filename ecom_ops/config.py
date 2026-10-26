@@ -101,6 +101,40 @@ class LoggingConfig:
 
 
 @dataclass(frozen=True)
+class LLMConfig:
+    enabled: bool
+    provider: str
+    model: str
+    base_url: str
+    temperature: float
+    max_tokens: int
+    timeout_seconds: int
+    max_attempts: int
+    retry_backoff_seconds: tuple[int, ...]
+    max_anomalies: int
+    thinking: str
+    cache_enabled: bool
+    cache_dir: Path
+
+
+@dataclass(frozen=True)
+class RAGConfig:
+    enabled: bool
+    embedding_model: str
+    embedding_dimensions: int
+    index_dir: Path
+    knowledge_dir: Path
+    history_dir: Path
+    chunk_size: int
+    chunk_overlap: int
+    top_k: int
+    max_selected_chunks: int
+    max_context_chars: int
+    min_score: float
+    embedding_batch_size: int
+
+
+@dataclass(frozen=True)
 class FieldSpec:
     name: str
     label: str
@@ -154,6 +188,8 @@ class Settings:
     anomaly: AnomalyConfig
     report: ReportConfig
     logging: LoggingConfig
+    llm: LLMConfig
+    rag: RAGConfig
     fields: FieldsConfig
     root: Path
     settings_path: Path
@@ -310,6 +346,8 @@ def load_settings(
     anomaly_raw = _section(raw, "anomaly")
     report_raw = _section(raw, "report")
     logging_raw = _section(raw, "logging")
+    llm_raw = _section(raw, "llm")
+    rag_raw = _section(raw, "rag")
 
     timezone_name = _as_str(_require(app_raw, "timezone", "app"), "app.timezone")
     try:
@@ -463,6 +501,113 @@ def load_settings(
     if retention_days < 1:
         raise ConfigError("logging.retention_days 必须 >= 1")
 
+    llm_enabled = _as_bool(_require(llm_raw, "enabled", "llm"), "llm.enabled")
+    llm_provider = _as_str(_require(llm_raw, "provider", "llm"), "llm.provider")
+    llm_model = os.getenv("LLM_MODEL", "").strip() or _as_str(
+        _require(llm_raw, "model", "llm"), "llm.model"
+    )
+    llm_base_url = os.getenv("ZHIPU_BASE_URL", "").strip() or _as_str(
+        _require(llm_raw, "base_url", "llm"), "llm.base_url"
+    )
+    llm_temperature = _as_float(
+        _require(llm_raw, "temperature", "llm"), "llm.temperature"
+    )
+    llm_max_tokens = _as_int(
+        _require(llm_raw, "max_tokens", "llm"), "llm.max_tokens"
+    )
+    llm_timeout = _as_int(
+        _require(llm_raw, "timeout_seconds", "llm"), "llm.timeout_seconds"
+    )
+    llm_max_attempts = _as_int(
+        _require(llm_raw, "max_attempts", "llm"), "llm.max_attempts"
+    )
+    llm_backoff = _as_int_list(
+        _require(llm_raw, "retry_backoff_seconds", "llm"),
+        "llm.retry_backoff_seconds",
+    )
+    llm_max_anomalies = _as_int(
+        _require(llm_raw, "max_anomalies", "llm"), "llm.max_anomalies"
+    )
+    llm_thinking = _as_str(_require(llm_raw, "thinking", "llm"), "llm.thinking").lower()
+    llm_cache_enabled = _as_bool(
+        _require(llm_raw, "cache_enabled", "llm"), "llm.cache_enabled"
+    )
+    llm_cache_dir = resolve_path(
+        _as_str(_require(llm_raw, "cache_dir", "llm"), "llm.cache_dir"),
+        project_root,
+    )
+    if not (0 <= llm_temperature <= 2):
+        raise ConfigError("llm.temperature 必须在 [0, 2] 之间")
+    if llm_max_tokens < 1:
+        raise ConfigError("llm.max_tokens 必须 >= 1")
+    if llm_timeout < 1:
+        raise ConfigError("llm.timeout_seconds 必须 >= 1")
+    if llm_max_attempts < 1:
+        raise ConfigError("llm.max_attempts 必须 >= 1")
+    if len(llm_backoff) < llm_max_attempts - 1:
+        raise ConfigError("llm.retry_backoff_seconds 的数量必须覆盖 max_attempts - 1")
+    if llm_max_anomalies < 1:
+        raise ConfigError("llm.max_anomalies 必须 >= 1")
+    if llm_thinking not in {"enabled", "disabled"}:
+        raise ConfigError("llm.thinking 只能是 enabled 或 disabled")
+
+    rag_enabled = _as_bool(_require(rag_raw, "enabled", "rag"), "rag.enabled")
+    embedding_model = os.getenv("EMBEDDING_MODEL", "").strip() or _as_str(
+        _require(rag_raw, "embedding_model", "rag"), "rag.embedding_model"
+    )
+    embedding_dimensions = _as_int(
+        os.getenv("EMBEDDING_DIMENSIONS", "").strip()
+        or _require(rag_raw, "embedding_dimensions", "rag"),
+        "rag.embedding_dimensions",
+    )
+    rag_index_dir = resolve_path(
+        _as_str(_require(rag_raw, "index_dir", "rag"), "rag.index_dir"),
+        project_root,
+    )
+    rag_knowledge_dir = resolve_path(
+        _as_str(_require(rag_raw, "knowledge_dir", "rag"), "rag.knowledge_dir"),
+        project_root,
+    )
+    rag_history_dir = resolve_path(
+        _as_str(_require(rag_raw, "history_dir", "rag"), "rag.history_dir"),
+        project_root,
+    )
+    rag_chunk_size = _as_int(
+        _require(rag_raw, "chunk_size", "rag"), "rag.chunk_size"
+    )
+    rag_chunk_overlap = _as_int(
+        _require(rag_raw, "chunk_overlap", "rag"), "rag.chunk_overlap"
+    )
+    rag_top_k = _as_int(_require(rag_raw, "top_k", "rag"), "rag.top_k")
+    rag_max_selected = _as_int(
+        _require(rag_raw, "max_selected_chunks", "rag"), "rag.max_selected_chunks"
+    )
+    rag_max_context = _as_int(
+        _require(rag_raw, "max_context_chars", "rag"), "rag.max_context_chars"
+    )
+    rag_min_score = _as_float(
+        _require(rag_raw, "min_score", "rag"), "rag.min_score"
+    )
+    rag_embedding_batch = _as_int(
+        _require(rag_raw, "embedding_batch_size", "rag"), "rag.embedding_batch_size"
+    )
+    if embedding_dimensions < 1:
+        raise ConfigError("rag.embedding_dimensions 必须 >= 1")
+    if rag_chunk_size < 1:
+        raise ConfigError("rag.chunk_size 必须 >= 1")
+    if not (0 <= rag_chunk_overlap < rag_chunk_size):
+        raise ConfigError("rag.chunk_overlap 必须 >= 0 且小于 chunk_size")
+    if rag_top_k < 1:
+        raise ConfigError("rag.top_k 必须 >= 1")
+    if rag_max_selected < 1:
+        raise ConfigError("rag.max_selected_chunks 必须 >= 1")
+    if rag_max_context < 1:
+        raise ConfigError("rag.max_context_chars 必须 >= 1")
+    if not (0 <= rag_min_score <= 1):
+        raise ConfigError("rag.min_score 必须在 [0, 1] 之间")
+    if rag_embedding_batch < 1:
+        raise ConfigError("rag.embedding_batch_size 必须 >= 1")
+
     fields = _load_fields(fields_file)
 
     return Settings(
@@ -502,6 +647,36 @@ def load_settings(
             level=log_level,
             filename=log_filename,
             retention_days=retention_days,
+        ),
+        llm=LLMConfig(
+            enabled=llm_enabled,
+            provider=llm_provider,
+            model=llm_model,
+            base_url=llm_base_url,
+            temperature=llm_temperature,
+            max_tokens=llm_max_tokens,
+            timeout_seconds=llm_timeout,
+            max_attempts=llm_max_attempts,
+            retry_backoff_seconds=llm_backoff,
+            max_anomalies=llm_max_anomalies,
+            thinking=llm_thinking,
+            cache_enabled=llm_cache_enabled,
+            cache_dir=llm_cache_dir,
+        ),
+        rag=RAGConfig(
+            enabled=rag_enabled,
+            embedding_model=embedding_model,
+            embedding_dimensions=embedding_dimensions,
+            index_dir=rag_index_dir,
+            knowledge_dir=rag_knowledge_dir,
+            history_dir=rag_history_dir,
+            chunk_size=rag_chunk_size,
+            chunk_overlap=rag_chunk_overlap,
+            top_k=rag_top_k,
+            max_selected_chunks=rag_max_selected,
+            max_context_chars=rag_max_context,
+            min_score=rag_min_score,
+            embedding_batch_size=rag_embedding_batch,
         ),
         fields=fields,
         root=project_root,

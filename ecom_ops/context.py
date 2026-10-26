@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 from ecom_ops.config import Settings
 
@@ -16,3 +17,5 @@ from ecom_ops.config import Settings
 class RunContext:
     settings: Settings
     logger: logging.LoggerAdapter
+    # 测试可注入假的 AI 服务；生产环境由 ai_recommend 节点按配置构造。
+    ai_service: Any | None = None

@@ -26,6 +26,7 @@ from ecom_ops.analysis.severity import (
     zero_conversion_factor,
 )
 from ecom_ops.config import AnomalyConfig
+from ecom_ops.utils.dates import parse_date
 
 
 @dataclass(frozen=True)
@@ -80,6 +81,8 @@ class Anomaly:
     level: str
     low_confidence: bool
     first_seen: str | None
+    product_age_days: int
+    is_first_day: bool
 
     @property
     def anomaly_types(self) -> list[str]:
@@ -118,6 +121,8 @@ class Anomaly:
             "severity_level": self.level,
             "low_confidence": self.low_confidence,
             "first_seen": self.first_seen,
+            "product_age_days": self.product_age_days,
+            "is_first_day": self.is_first_day,
         }
 
 
@@ -325,6 +330,18 @@ def detect_anomalies(
         low_confidence = (
             pv_baseline.confidence == "low" or orders_baseline.confidence == "low"
         )
+        first_seen_value = pv_baseline.first_seen or orders_baseline.first_seen
+        product_age_days = 0
+        if first_seen_value:
+            try:
+                product_age_days = max(
+                    0,
+                    (parse_date(str(row.get("stat_date"))) - parse_date(first_seen_value)).days
+                    + 1,
+                )
+            except ValueError:
+                product_age_days = 0
+        is_first_day = product_age_days == 1
 
         anomalies.append(
             Anomaly(
@@ -357,7 +374,9 @@ def detect_anomalies(
                 score=score,
                 level=level_of(score, config.levels),
                 low_confidence=low_confidence,
-                first_seen=pv_baseline.first_seen or orders_baseline.first_seen,
+                first_seen=first_seen_value,
+                product_age_days=product_age_days,
+                is_first_day=is_first_day,
             )
         )
 

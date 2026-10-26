@@ -1,5 +1,5 @@
 # 电商运营 Agent - 业务配置
-# 所有阈值均为阶段一默认值，后续应结合真实数据校准。
+# 所有阈值均为 v0.1 默认值，后续应结合真实数据校准。
 # 密钥不写在这里，只放 .env。
 
 app:
@@ -45,7 +45,7 @@ anomaly:
   levels:
     high: 70
     medium: 40
-  # 库存异常默认关闭：阶段一库存只展示与校验
+  # 库存异常默认关闭：当前库存只展示与校验
   inventory:
     enabled: false
     low_stock_days: 3
@@ -57,6 +57,42 @@ report:
   # 商品简介在报告中的最大展示字数
   description_max_chars: 200
   filename_pattern: "{date}_daily_report.md"
+
+llm:
+  enabled: true
+  provider: zhipu
+  # 模型与地址可由 .env 的 LLM_MODEL / ZHIPU_BASE_URL 覆盖
+  model: glm-4.7-flash
+  base_url: https://open.bigmodel.cn/api/paas/v4
+  temperature: 0.2
+  max_tokens: 6000
+  timeout_seconds: 90
+  # 首次 + 2 次重试；遇到 1305/429/5xx/超时按下面的间隔退避
+  max_attempts: 3
+  retry_backoff_seconds: [5, 15]
+  # 只分析严重度最高的 N 个异常，控制单次请求体量
+  max_anomalies: 10
+  # 关闭思考模式，保证 JSON 输出稳定、延迟更低
+  thinking: disabled
+  cache_enabled: true
+  cache_dir: data/cache/ai
+
+rag:
+  enabled: true
+  # 与 GLM 同一供应商，减少一把密钥的暴露面
+  embedding_model: embedding-3
+  embedding_dimensions: 1024
+  index_dir: data/rag
+  knowledge_dir: knowledge
+  history_dir: reports/history
+  chunk_size: 900
+  chunk_overlap: 120
+  top_k: 4
+  # 合并多个商品的检索结果后，最多保留多少个高分片段
+  max_selected_chunks: 12
+  max_context_chars: 4000
+  min_score: 0.15
+  embedding_batch_size: 32
 
 logging:
   level: INFO

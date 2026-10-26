@@ -38,6 +38,7 @@ def run_workflow(
     run_id: str,
     source_path: str | Path,
     stat_date: str | None = None,
+    force_refresh_ai: bool = False,
 ) -> dict[str, Any]:
     """执行一次完整工作流，返回最终状态。"""
     compiled = build_workflow(context)
@@ -45,6 +46,7 @@ def run_workflow(
         "run_id": run_id,
         "source_path": str(source_path),
         "stat_date": stat_date or "",
+        "force_refresh_ai": force_refresh_ai,
         "status": "started",
         "errors": [],
     }

@@ -31,3 +31,15 @@ class ReportError(EcomOpsError):
 
 class WorkflowError(EcomOpsError):
     """LangGraph 工作流执行失败。"""
+
+
+class LLMError(EcomOpsError):
+    """大模型调用失败（重试后仍失败）。"""
+
+
+class AISchemaError(EcomOpsError):
+    """大模型输出无法解析为约定的 JSON 结构。"""
+
+
+class RAGError(EcomOpsError):
+    """RAG 索引构建或检索失败。"""

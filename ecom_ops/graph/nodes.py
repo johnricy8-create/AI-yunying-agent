@@ -23,8 +23,10 @@ from ecom_ops.exceptions import (
     WorkflowError,
 )
 from ecom_ops.graph.state import AgentState
+from ecom_ops.llm.prompts import PROMPT_VERSION
+from ecom_ops.llm.service import AIService
 from ecom_ops.report.renderer import render_report
-from ecom_ops.utils.dates import default_stat_date, parse_date, today as today_fn
+from ecom_ops.utils.dates import default_stat_date, format_datetime, parse_date, today as today_fn
 
 
 def load_data_node(state: AgentState, context: RunContext) -> dict[str, Any]:
@@ -138,17 +140,52 @@ def analyze_data_node(state: AgentState, context: RunContext) -> dict[str, Any]:
 
 
 def ai_recommend_node(state: AgentState, context: RunContext) -> dict[str, Any]:
-    """阶段一占位：不调用模型，不生成伪 AI 结论。"""
-    context.logger.info("[ai_recommend] 阶段一未接入大模型，跳过模型调用")
-    return {
-        "ai_result": {
-            "status": "not_configured",
-            "provider": None,
-            "message": "阶段一未接入大模型；本报告仅包含规则型核查方向，不代表模型结论。",
-            "suggestions": [],
-        },
-        "status": "ai_skipped",
-    }
+    """阶段二：RAG + 对话模型生成结构化建议；失败时降级为规则报告。"""
+    context.logger.info("[ai_recommend] 开始生成 AI 建议")
+    try:
+        service = context.ai_service
+        if service is None:
+            service = AIService(context.settings, context.logger)
+        result = service.recommend(
+            anomalies=list(state.get("anomalies", []) or []),
+            stat_date=str(state.get("stat_date", "")),
+            force_refresh=bool(state.get("force_refresh_ai", False)),
+        )
+        result_status = str(result.get("status", "unknown"))
+        pipeline_status = "ai_completed" if result_status == "ok" else "ai_degraded"
+        retrieval = result.get("retrieval", {}) or {}
+        context.logger.info(
+            "[ai_recommend] 完成：status=%s，商品=%d，检索块=%d，耗时=%s",
+            result_status,
+            len(result.get("products", {}) or {}),
+            int(retrieval.get("selected_count", 0) or 0),
+            result.get("latency_seconds"),
+        )
+        return {"ai_result": result, "status": pipeline_status}
+    except Exception as exc:
+        context.logger.exception("[ai_recommend] 未预期错误，回退到规则型建议")
+        fallback = {
+            "status": "failed",
+            "provider": context.settings.llm.provider,
+            "model": context.settings.llm.model,
+            "prompt_version": PROMPT_VERSION,
+            "generated_at": format_datetime(),
+            "latency_seconds": None,
+            "cached": False,
+            "products": {},
+            "global_notes": "",
+            "message": "AI 分析发生未预期错误，报告已回退到规则型建议。",
+            "retrieval": {
+                "enabled": context.settings.rag.enabled,
+                "available": False,
+                "chunk_count": 0,
+                "selected_count": 0,
+                "chunks": [],
+                "error": str(exc)[:300],
+            },
+            "error": f"{type(exc).__name__}: {str(exc)[:500]}",
+        }
+        return {"ai_result": fallback, "status": "ai_degraded"}
 
 
 def generate_report_node(state: AgentState, context: RunContext) -> dict[str, Any]:

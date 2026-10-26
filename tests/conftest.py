@@ -31,7 +31,13 @@ def settings(tmp_path: Path, base_settings):
         report_dir=tmp_path / "reports",
         log_dir=tmp_path / "logs",
     )
-    return replace(base_settings, app=app)
+    # 单元测试默认不调用真实 API；需要联网的用例单独注入假服务或显式开启。
+    return replace(
+        base_settings,
+        app=app,
+        llm=replace(base_settings.llm, enabled=False),
+        rag=replace(base_settings.rag, enabled=False),
+    )
 
 
 @pytest.fixture()

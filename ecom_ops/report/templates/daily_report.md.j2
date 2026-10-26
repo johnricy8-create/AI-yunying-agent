@@ -134,24 +134,102 @@
 
 ---
 
-## 6. AI 原因分析（阶段一占位）
+## 6. AI 原因分析
 
-{{ ai_result.get('message', '阶段一未接入大模型。') }}
+{% if ai_status == 'ok' %}
+{% set retrieval_section = top_anomalies|length + 1 %}
+> 以下内容由 `{{ ai_model }}` 生成，检索资料编号见 6.{{ retrieval_section }}；AI 可能出错，所有结论需人工确认。
+> 检索资料仅作排查思路或历史案例参考，不代表当前商品事实；关键数字以第 4 节和上方“程序计算”数据为准。
 
-- AI 状态：`{{ ai_result.get('status', 'not_configured') }}`
-- 提供商：{{ ai_result.get('provider') or '未配置' }}
+{% for a in top_anomalies %}
+{% set ai = ai_products.get(a.product_id) %}
+### 6.{{ loop.index }} {{ a.product_name }}（{{ a.product_id }}）
 
-> 阶段二将把异常商品的指标、基线、商品简介等证据送入对话模型，并要求模型区分“数据事实”与“待验证假设”。本阶段不生成任何伪 AI 结论。
+{% if ai %}
+- **AI 摘要**：{{ ai.summary|md }}
+- **关键数据（程序计算，供核对）**：浏览量 {{ a.pv_today|fmt_int }}（基线 {{ a.pv_baseline|fmt_float(1) }}，变化 {{ a.pv_change_rate|fmt_change }}）；订单量 {{ a.orders_today|fmt_int }}（基线 {{ a.orders_baseline|fmt_float(1) }}）；转化率 {{ a.cr_today|fmt_pct }}（基线 {{ a.cr_baseline|fmt_pct }}）；库存 {{ a.stock|fmt_int }}。
+{% if ai.consistency_warnings %}
+> ⚠️ AI 结论与数据方向可能不一致：{{ ai.consistency_warnings|join('；') }}。请以“关键数据”和第 4 节为准。
+{% endif %}
+
+- **可能原因**：
+
+| 原因 | 置信度 | 证据 |
+|---|---|---|
+{% for cause in ai.possible_causes %}
+| {{ cause.cause|md }} | {{ cause.confidence }} | {{ cause.evidence|join('；')|md }} |
+{% endfor %}
+{% if not ai.possible_causes %}
+| 模型未给出明确原因 | — | 需进一步验证 |
+{% endif %}
+
+- **建议人工核查**：
+{% for check in ai.manual_checks %}
+  - {{ check|md }}
+{% endfor %}
+{% if not ai.manual_checks %}
+  - 暂无
+{% endif %}
+- **引用资料**：{% if ai.sources %}{{ ai.sources|join('、') }}{% else %}无{% endif %}
+{% else %}
+- 模型未返回该商品的分析。
+{% endif %}
+
+{% endfor %}
+
+### 6.{{ retrieval_section }} 检索资料
+
+{% if retrieval_chunks %}
+| 编号 | 日期 | 来源 | 标题 | 相似度 |
+|---|---|---|---|---:|
+{% for chunk in retrieval_chunks %}
+| {{ chunk.id }} | {{ chunk.date or '通用' }} | `{{ chunk.source }}` | {{ chunk.title|md }} | {{ chunk.score|fmt_float(3) }} |
+{% endfor %}
+{% else %}
+本次未检索到资料。
+{% endif %}
+
+{% else %}
+- AI 状态：**{{ ai_status_label }}**
+- {{ ai_message or '本次未生成 AI 分析。' }}
+{% if ai_error %}
+- 错误：`{{ ai_error|md }}`
+{% endif %}
+
+> 本报告已回退到第 7 节的规则型建议，任务本身仍然成功完成。
+{% endif %}
 
 ---
 
-## 7. 运营优化建议（规则型，非 AI）
+## 7. 运营优化建议
+
+{% if ai_status == 'ok' and ai_products %}
+### 7.1 AI 建议（需人工确认）
+
+{% for a in top_anomalies %}
+{% set ai = ai_products.get(a.product_id) %}
+{% if ai and ai.recommendations %}
+#### {{ a.product_name }}（{{ a.product_id }}）
+
+{% for rec in ai.recommendations %}
+- **动作**：{{ rec.action|md }}
+  - 理由：{{ rec.rationale|md }}
+  - 预期改善：{{ rec.expected_effect|md }}
+  - 风险：{{ rec.risk|md }}
+  - 需人工确认：{{ '是' if rec.needs_human else '否' }}
+{% endfor %}
+
+{% endif %}
+{% endfor %}
+{% endif %}
+
+### 7.2 规则型核查方向（非 AI）
 
 > 以下内容由固定规则生成，仅用于提示核查方向，不是大模型结论，也不代表已经确认的原因。
 
 {% if suggestion_groups %}
 {% for group in suggestion_groups %}
-### {{ group.label }}
+#### {{ group.label }}
 
 - 涉及商品：{{ group.products|join('、') }}
 - 核查方向：
@@ -192,7 +270,11 @@
 | 统计日期 | {{ stat_date }} |
 | 报告路径 | `{{ report_path }}` |
 | 数据质量 | 有效 {{ summary.get('valid_rows', 0)|fmt_int }} 行 / 隔离 {{ summary.get('invalid_rows', 0)|fmt_int }} 行 |
-| AI 状态 | {{ ai_result.get('status', 'not_configured') }} |
+| AI 状态 | {{ ai_status_label }}（`{{ ai_status }}`） |
+| AI 模型 | {{ ai_model or '—' }} / {{ ai_provider or '—' }} |
+| AI 生成时间 | {{ ai_generated_at or '—' }} |
+| AI 耗时 / 缓存 | {{ ai_latency|fmt_float(2) }} 秒 / {{ '是' if ai_cached else '否' }} |
+| RAG 检索 | {{ '可用' if retrieval.get('available') else '不可用' }}，选中 {{ retrieval.get('selected_count', 0)|fmt_int }} 块 / 索引 {{ retrieval.get('chunk_count', 0)|fmt_int }} 块 |
 
 ---
 
@@ -209,7 +291,7 @@
 - 严重度：单规则基础分 × 幅度系数（封顶 2.0），多规则累加封顶 100；≥ {{ anomaly_config.levels.high }} 高危，≥ {{ anomaly_config.levels.medium }} 中危，其余低危。
 - 销售额为已扣退款、不含税的净额；退款金额不再二次扣减。
 - 报告默认展示 Top {{ top_n }} 异常详情，其余仅统计数量与类型。
-- 以上阈值为阶段一默认值，尚未用真实业务数据校准，可能偏敏感或偏保守；阶段三接入真实数据后应复盘调整。
+- 以上阈值为 v0.1 默认值，阶段二保持不变；尚未用真实业务数据校准，可能偏敏感或偏保守，阶段三接入真实数据后应复盘调整。
 
 ---
 
@@ -230,4 +312,9 @@
 | sales_amount | 销售额 | 已扣退款、不含税净额 |
 | refund_amount | 退款金额 | 用于校验，不再二次扣减 |
 
-完整字段字典见 `docs/field_dictionary.md`。报告由阶段一规则引擎生成，未调用大模型。
+完整字段字典见 `docs/field_dictionary.md`。
+
+- 运营知识库：`knowledge/`
+- 历史日报语料（可选）：`reports/history/`
+- 重建 RAG 索引：`.venv\Scripts\python.exe tools\build_rag_index.py`
+- 本报告由规则引擎 + 可选 AI 生成；AI 内容仅作辅助，需人工确认。

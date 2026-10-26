@@ -1,4 +1,4 @@
-# 运行手册（阶段一）
+# 运行手册（阶段一 + 阶段二）
 
 ## 1. 环境准备
 
@@ -48,21 +48,45 @@ uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 
 ## 3. 运行
 
+### 3.1 首次准备 RAG
+
+```powershell
+# 可选：生成历史日报语料
+.venv\Scripts\python.exe tools\build_history.py
+
+# 构建/重建向量索引
+.venv\Scripts\python.exe tools\build_rag_index.py
+```
+
+预期：
+
+```text
+语料块数: 141（knowledge=29, history=112）
+索引已保存: data\rag
+向量矩阵: (141, 1024), 模型: embedding-3
+```
+
+### 3.2 运行日报
+
 ```powershell
 .venv\Scripts\python.exe run.py
 ```
 
-预期输出：
+预期输出（AI 成功时）：
 
 ```text
-阶段一运行完成
+运营分析运行完成
 run_id       : auto-20261026-...
 统计日期     : 2026-10-25
 参与商品数   : 196
 异常商品数   : 34
 有效/隔离行  : 2770 / 6
+AI 状态      : ok
+RAG 检索块   : 12 / 索引 141
 报告路径     : D:\ai运营agent\reports\2026-10-25_daily_report.md
 ```
+
+如果智谱免费模型返回 `1305`，AI 状态会显示 `failed`，报告仍会生成，并在第 6 节说明已回退规则型建议。
 
 报告位置：`reports/2026-10-25_daily_report.md`。
 日志位置：`logs/ecom_ops.log`。
@@ -74,6 +98,9 @@ run_id       : auto-20261026-...
 .venv\Scripts\python.exe run.py --data data\mock\sales_mock.csv --date 2026-10-25
 .venv\Scripts\python.exe run.py --top-n 5
 .venv\Scripts\python.exe run.py --report-dir reports --log-dir logs
+.venv\Scripts\python.exe run.py --no-ai          # 只出规则型报告
+.venv\Scripts\python.exe run.py --no-rag         # 不启用检索
+.venv\Scripts\python.exe run.py --refresh-ai     # 忽略 AI 缓存
 ```
 
 不传 `--date` 时默认 D-1（北京时间）；如果数据中不存在 D-1，会自动回退到最新可用日期，并在日志中给出 warning。
@@ -89,10 +116,10 @@ run_id       : auto-20261026-...
 预期：
 
 ```text
-38 passed
+54 passed
 ```
 
-测试覆盖指标、基线、异常边界、数据校验、端到端工作流、报告章节、同日覆盖、日志 run_id、缺失文件快速失败。
+测试覆盖指标、基线、异常边界、数据校验、RAG 切分/检索、AI JSON 解析/重试/缓存/降级、端到端工作流、报告章节、同日覆盖、日志 run_id、缺失文件快速失败。
 
 ---
 
@@ -131,23 +158,37 @@ baseline:
 
 阶段三接入真实数据时，在 `config/fields.yaml` 的 `aliases` 中增加中文表头映射，不要改分析代码。
 
-### 密钥
+### 密钥与 AI/RAG 配置
 
-阶段一不需要任何密钥。阶段二再把对话模型密钥写入项目根目录 `.env`：
+阶段二把智谱密钥写入项目根目录 `.env`：
 
 ```text
-SILICONFLOW_API_KEY=...
-SILICONFLOW_BASE_URL=...
-LLM_MODEL=...
+ZHIPU_API_KEY=...
+ZHIPU_BASE_URL=https://open.bigmodel.cn/api/paas/v4
+LLM_MODEL=glm-4.7-flash
+EMBEDDING_MODEL=embedding-3
+EMBEDDING_DIMENSIONS=1024
 ```
 
 `.env` 已被 `.gitignore` 排除；不要把密钥写进 `settings.yaml`、README、日志或任务计划程序参数。
+
+AI 与 RAG 参数在 `config/settings.yaml` 的 `llm` / `rag` 段：
+
+- `llm.max_attempts`：总尝试次数，默认 3。
+- `llm.retry_backoff_seconds`：退避间隔，默认 `[5, 15]`。
+- `llm.max_anomalies`：送模型的异常数量，默认 10。
+- `llm.cache_enabled`：是否缓存成功结果，默认 true。
+- `rag.top_k`：每个商品检索块数，默认 4。
+- `rag.max_selected_chunks`：合并后最多保留块数，默认 12。
+- `rag.max_context_chars`：提示词中检索文本上限，默认 4000。
+
+语料或嵌入模型变化后，重新运行 `tools/build_rag_index.py`。
 
 ---
 
 ## 6. 数据替换
 
-阶段一仅支持 CSV。可以把任意符合字段字典的 CSV 传给 `--data`：
+当前仅支持 CSV。可以把任意符合字段字典的 CSV 传给 `--data`：
 
 ```powershell
 .venv\Scripts\python.exe run.py --data D:\data\sales_2026-10-25.csv --date 2026-10-25
@@ -158,7 +199,7 @@ LLM_MODEL=...
 - 必须有 `stat_date`、`product_id`、`product_name`、`price`、`stock`、`pv`、`orders`、`sales_amount`；
 - 中文表头可通过 `config/fields.yaml` 的 `aliases` 映射；
 - 编码优先 UTF-8 with BOM，也兼容 UTF-8/GBK；
-- Excel（`.xlsx/.xls`）阶段一不支持，会明确提示留到阶段三；
+- Excel（`.xlsx/.xls`）当前不支持，会明确提示留到阶段三；
 - 不要假设已有真实电商平台 API。
 
 ---
@@ -178,10 +219,14 @@ LLM_MODEL=...
 | `报告写入失败` | 文件被占用/无权限 | 关闭打开的 Excel/Markdown 预览，或换 `--report-dir` |
 | YAML 解析错误 | 缩进/冒号写错 | 按 `settings.yaml` 原有缩进修正 |
 | `pytest` 命令找不到 | 未激活虚拟环境 | 使用 `.venv\Scripts\python.exe -m pytest` |
+| `1305 该模型当前访问量过大` | 智谱免费模型平台过载 | 等待后重跑；可临时用 `--no-ai` 出规则型报告 |
+| `未找到 RAG 索引` | 未构建索引或索引目录被删 | 运行 `tools/build_rag_index.py` |
+| AI 状态 `failed` / `not_configured` | 限流、网络、JSON 无效或缺少 Key | 查看报告第 6 节与日志；补 Key 或稍后 `--refresh-ai` 重跑 |
+| AI 结果一直不更新 | 命中缓存 | 加 `--refresh-ai` 强制重新调用 |
 
 ---
 
-## 8. 阶段一验收清单
+## 8. 验收清单
 
 - [ ] `run.py` 能生成 `reports/YYYY-MM-DD_daily_report.md`
 - [ ] 报告包含 12 个章节
@@ -189,17 +234,19 @@ LLM_MODEL=...
 - [ ] 坏行被隔离并在报告中统计
 - [ ] 日志含 run_id、节点、状态、报告路径
 - [ ] 同日重复运行覆盖报告，不重复追加
-- [ ] 无网络请求、无 LLM 调用、无外部写操作
+- [ ] RAG 索引可构建，检索结果带来源与相似度
+- [ ] AI 成功时报告包含摘要、事实、原因、建议、引用
+- [ ] AI 失败时报告仍生成，并明确标注规则型降级
+- [ ] 没有外部业务写操作
 - [ ] `pytest` 全部通过
-- [ ] `.env` 未被提交，报告/日志/真实数据均被 gitignore
+- [ ] `.env` 未被提交，报告/日志/真实数据/索引/缓存均被 gitignore
 
 ---
 
-## 9. 阶段一之后
+## 9. 后续阶段
 
-- 阶段二：接入对话模型，替换 `ai_recommend`，增加超时/限流/重试与失败降级。
-- 阶段三：真实 CSV/Excel、字段映射、数据质量。
+- 阶段三：真实 CSV/Excel、字段映射、数据质量、阈值校准。
 - 阶段四：APScheduler 每日 09:00、并发防护、Windows 任务计划程序。
-- 阶段五：历史记录、建议有效性、可选 RAG（BGE-M3）、通知与看板。
+- 阶段五：历史记录、建议有效性、通知与看板；可评估其他嵌入模型。
 
-阶段一不提供定时任务；电脑关机、休眠或程序退出时不会自动执行，这是阶段四要解决的问题。
+当前不提供定时任务；电脑关机、休眠或程序退出时不会自动执行，这是阶段四要解决的问题。

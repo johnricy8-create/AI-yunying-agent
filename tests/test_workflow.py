@@ -45,10 +45,10 @@ def test_end_to_end_generates_report(context, mock_csv):
     content = read_text(report_path)
     for section in REQUIRED_SECTIONS:
         assert section in content, f"报告缺少章节: {section}"
-    assert "阶段一未接入大模型" in content
+    assert "大模型未启用" in content
     assert "成功（报告已生成）" in content
     assert "高浏览零订单" in content
-    assert "规则型，非 AI" in content
+    assert "规则型核查方向" in content
 
 
 def test_rerun_same_date_overwrites_report(context, mock_csv, settings):

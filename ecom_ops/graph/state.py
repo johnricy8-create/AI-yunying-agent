@@ -25,6 +25,7 @@ class AgentState(TypedDict, total=False):
     global_summary: dict[str, Any]
 
     ai_result: dict[str, Any]
+    force_refresh_ai: bool
     report_path: str
     status: str
     errors: list[str]

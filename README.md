@@ -2,9 +2,12 @@
 
 面向销售 Excel 模板、办公资料、电子资料等数字商品的每日运营分析 Agent。
 
-当前完成 **阶段一**：读取模拟销售数据 → 校验 → 计算指标 → 自适应基线 → 识别异常 → 严重度排序 → 生成 Markdown 日报 → 记录日志。
+当前完成 **阶段一 + 阶段二**：
 
-> 阶段一**不调用任何大模型、不访问网络、不操作真实电商账户**。AI 章节为显式占位，报告中不会出现伪造的模型结论。
+1. 读取模拟销售数据 → 校验 → 计算指标 → 自适应基线 → 识别异常 → 严重度排序 → 生成 Markdown 日报 → 记录日志。
+2. 对 Top-N 异常，通过 **RAG（知识库 + 历史日报）** 检索相关经验，调用 **智谱 GLM-4.7-Flash** 生成结构化原因分析与建议；模型限流、超时或输出无效时自动回退到规则型报告。
+
+> 阶段二只做分析与建议，**不自动改价、不自动发布、不操作真实电商账户**。所有涉及业务动作的建议都标记为需人工确认。
 
 ---
 
@@ -31,9 +34,17 @@ uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 # 3) 生成模拟数据（已生成可跳过）
 .venv\Scripts\python.exe tools\generate_mock_data.py
 
-# 4) 运行
+# 4) 生成历史日报语料（可选，用于 RAG 历史案例）
+.venv\Scripts\python.exe tools\build_history.py
+
+# 5) 构建 RAG 索引（首次或语料变化后）
+.venv\Scripts\python.exe tools\build_rag_index.py
+
+# 6) 运行（需要 .env 中的 ZHIPU_API_KEY；没有 Key 会自动降级）
 .venv\Scripts\python.exe run.py
 ```
+
+`.env` 配置样例见 `.env.example`，复制为 `.env` 后填入 `ZHIPU_API_KEY`。`.env` 已被 `.gitignore` 排除。
 
 也可以先激活虚拟环境：
 
@@ -58,6 +69,15 @@ python run.py
 
 # 指定报告/日志目录
 .venv\Scripts\python.exe run.py --report-dir reports --log-dir logs
+
+# 本次不调用大模型（只出规则型报告）
+.venv\Scripts\python.exe run.py --no-ai
+
+# 忽略 AI 结果缓存，强制重新调用
+.venv\Scripts\python.exe run.py --refresh-ai
+
+# 本次不启用 RAG 检索
+.venv\Scripts\python.exe run.py --no-rag
 ```
 
 不传 `--date` 时，默认统计日期为运行日的前一天（北京时间 D-1）；若该日期不在数据中，会回退到最新可用日期并在日志中告警。
@@ -69,7 +89,11 @@ python run.py
 | 输出 | 路径 |
 |---|---|
 | 日报 | `reports/YYYY-MM-DD_daily_report.md` |
+| 历史日报语料 | `reports/history/`（已 gitignore，可重建） |
+| RAG 索引 | `data/rag/`（已 gitignore，可重建） |
+| AI 缓存 | `data/cache/ai/`（已 gitignore） |
 | 日志 | `logs/ecom_ops.log`（按天轮转，默认保留 30 天） |
+| 运营知识库 | `knowledge/`（需业务方审核） |
 | 模拟数据 | `data/mock/sales_mock.csv` |
 | 真实数据（阶段三） | `data/raw/`（已 gitignore） |
 
@@ -93,12 +117,20 @@ python run.py
 │  ├─ data/                     # 读取、校验、模拟数据、字段契约
 │  ├─ analysis/                 # 指标、基线、异常、严重度
 │  ├─ graph/                    # LangGraph 状态、节点、工作流
+│  ├─ llm/                      # GLM 客户端、提示词、结构化输出、AI 服务
+│  ├─ rag/                      # 语料切分、向量索引、检索器
 │  ├─ report/                   # Jinja2 报告渲染与模板
 │  └─ utils/                    # 日期、时区、文件工具
-├─ tools/generate_mock_data.py  # 模拟数据生成器
+├─ knowledge/                   # 运营知识库（示例 SOP，需业务方审核）
+├─ tools/
+│  ├─ generate_mock_data.py     # 模拟数据生成器
+│  ├─ build_history.py          # 生成历史日报语料
+│  └─ build_rag_index.py        # 构建本地向量索引
 ├─ data/
 │  ├─ mock/                     # 模拟数据
-│  └─ raw/                      # 真实数据（阶段三）
+│  ├─ raw/                      # 真实数据（阶段三）
+│  ├─ rag/                      # 向量索引（gitignore）
+│  └─ cache/                    # AI 缓存（gitignore）
 ├─ reports/                     # 日报输出
 ├─ logs/                        # 运行日志
 ├─ tests/                       # pytest 测试
@@ -113,35 +145,40 @@ python run.py
 .venv\Scripts\python.exe -m pytest
 ```
 
-当前测试覆盖：
+当前共 **54 个测试**，覆盖：
 
 - 指标计算与昨日对比、UV/PV 分母、缺失昨日、昨日为 0；
 - 3/5/7 自适应基线、历史不足、新品首日/第二天、均值为 0；
 - 四类核心异常的触发边界、最小样本、低置信、库存规则关闭；
 - 数据校验：缺字段、负值、订单大于浏览、退款大于销售、重复行、未来日期、警告；
-- LangGraph 端到端、报告 12 个章节、同日覆盖、日志 run_id、缺失文件快速失败。
+- RAG：Markdown 切分、知识库/历史日报过滤、向量检索、日期过滤、索引持久化；
+- AI：JSON 解析容错、未知来源过滤、限流重试、缓存命中、失败降级；
+- LangGraph 端到端、报告 12 个章节、AI 报告渲染、同日覆盖、日志 run_id、缺失文件快速失败。
 
 ---
 
 ## 6. 配置说明
 
-- `config/settings.yaml`：业务阈值、基线窗口、Top-N、日志保留、目录。
+- `config/settings.yaml`：业务阈值、基线窗口、Top-N、LLM/RAG 参数、日志、目录。
 - `config/fields.yaml`：字段定义、必填/类型、中文表头别名。
-- `.env`：只放密钥与机器相关环境变量，**不提交到 Git**。阶段一不需要任何密钥。
+- `.env`：只放密钥与机器相关环境变量，**不提交到 Git**。阶段二需要 `ZHIPU_API_KEY`；没有 Key 时自动降级为规则型报告。
+- `knowledge/`：运营知识库，当前为示例 SOP，需业务方审核后替换。
 
 配置优先级：命令行参数 > 环境变量 > `settings.yaml` 默认值。
 
 ---
 
-## 7. 阶段一已知限制
+## 7. 已知限制
 
 - 转化率分母优先 UV，缺失时回退浏览量；当前模拟数据没有独立 UV。
 - 基线使用 3/5/7 日均值，无法处理周内规律与季节性；开学季等正常波动可能被误判。
 - 缺失日期不插值，昨日为 0 或缺失时浏览量变化率显示“—”。
 - 销售额为已扣退款、不含税净额；退款金额不再二次扣减。
 - 库存仅展示与校验，不参与异常判定。
-- 阈值是阶段一默认值，尚未用真实数据校准，可能偏敏感或偏保守。
-- 阶段一不接大模型、不做定时调度、不读真实 Excel/CSV 业务数据。
+- 阈值 v0.1 保持不变，尚未用真实数据校准，可能偏敏感或偏保守。
+- GLM-4.7-Flash 免费模型可能返回 `1305 平台过载`；已实现退避重试与规则降级，但高峰期可能拿不到 AI 分析。
+- 当前知识库为示例 SOP，不是真实平台政策；RAG 检索结果可能不完整。
+- 不接真实 Excel/CSV 业务数据、不做定时调度；这些分别在阶段三、四处理。
 
 ---
 
@@ -149,12 +186,12 @@ python run.py
 
 | 阶段 | 内容 |
 |---|---|
-| 阶段二 | 对话模型接入、结构化建议、超时/限流/重试、失败降级、证据约束 |
-| 阶段三 | 真实 CSV/Excel、字段映射、数据质量、缺失日期处理 |
+| 阶段二 | 已完成：GLM-4.7-Flash、RAG、结构化建议、限流重试、失败降级、缓存 |
+| 阶段三 | 真实 CSV/Excel、字段映射、数据质量、缺失日期处理、阈值校准 |
 | 阶段四 | APScheduler 每日 09:00、并发防护、Windows 任务计划程序 |
-| 阶段五 | 历史记录、日期对比、建议有效性、可选 RAG（BGE-M3）、通知与看板 |
+| 阶段五 | 历史记录、日期对比、建议有效性、通知与看板；可选其他嵌入模型 |
 
-BGE-M3 属于嵌入模型，阶段一、阶段二核心流程均不使用；仅在阶段五评估历史报告语义检索时再引入。
+RAG 当前使用智谱 `embedding-3`（1024 维），与 GLM 共用一把 Key；BGE-M3 不再作为默认方案。
 
 ---
 
@@ -169,5 +206,5 @@ BGE-M3 属于嵌入模型，阶段一、阶段二核心流程均不使用；仅�
 
 - `.env` 已被 `.gitignore` 排除；不要把密钥写入 `settings.yaml`、README 或日志。
 - 报告与日志不写入客户个人信息。
-- 阶段一没有任何外部写操作。
-- 如密钥曾在聊天/截图中出现，请立即到服务商控制台轮换。
+- 阶段二只调用模型推理接口，没有任何外部业务写操作。
+- 如密钥曾在聊天/截图中出现，请立即到智谱控制台轮换，并更新本地 `.env`。

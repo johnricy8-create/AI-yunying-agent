@@ -1,12 +1,15 @@
-"""阶段一手动运行入口。
+"""阶段二手动运行入口。
 
 用法：
     python run.py
     python run.py --date 2026-10-25
     python run.py --data data/mock/sales_mock.csv --date 2026-10-25
     python run.py --top-n 5
+    python run.py --no-ai
+    python run.py --refresh-ai
 
-阶段一只读取模拟 CSV、生成 Markdown 报告，不调用任何大模型。
+读取 CSV、计算指标与异常，调用 RAG + GLM 生成建议，并生成 Markdown 报告。
+没有 API Key 或模型失败时自动回退到规则型报告。
 """
 
 from __future__ import annotations
@@ -35,6 +38,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--report-dir", default=None, help="报告输出目录")
     parser.add_argument("--log-dir", default=None, help="日志输出目录")
     parser.add_argument("--top-n", type=int, default=None, help="报告展示的异常数量")
+    parser.add_argument("--no-ai", action="store_true", help="本次运行不调用大模型")
+    parser.add_argument("--no-rag", action="store_true", help="本次运行不启用 RAG 检索")
+    parser.add_argument("--refresh-ai", action="store_true", help="忽略 AI 结果缓存")
     return parser
 
 
@@ -86,7 +92,9 @@ def main(argv: list[str] | None = None) -> int:
             if args.top_n < 1:
                 raise ValueError("--top-n 必须 >= 1")
             report = replace(report, top_n=args.top_n)
-        settings = replace(settings, app=app, report=report)
+        llm = replace(settings.llm, enabled=False) if args.no_ai else settings.llm
+        rag = replace(settings.rag, enabled=False) if args.no_rag else settings.rag
+        settings = replace(settings, app=app, report=report, llm=llm, rag=rag)
 
         setup_logging(
             settings.app.log_dir,
@@ -107,19 +115,26 @@ def main(argv: list[str] | None = None) -> int:
             run_id=run_id,
             source_path=settings.app.data_file,
             stat_date=stat_date,
+            force_refresh_ai=args.refresh_ai,
         )
 
         summary = result.get("global_summary", {}) or {}
         quality = (result.get("data_quality", {}) or {}).get("summary", {}) or {}
+        ai_result = result.get("ai_result", {}) or {}
+        retrieval = ai_result.get("retrieval", {}) or {}
         print()
         print("=" * 60)
-        print("阶段一运行完成")
+        print("运营分析运行完成")
         print(f"run_id       : {run_id}")
         print(f"统计日期     : {result.get('stat_date', '—')}")
         print(f"参与商品数   : {summary.get('product_count', 0)}")
         print(f"异常商品数   : {len(result.get('anomalies', []) or [])}")
         print(f"有效/隔离行  : {quality.get('valid_rows', 0)} / {quality.get('invalid_rows', 0)}")
+        print(f"AI 状态      : {ai_result.get('status', '—')}")
+        print(f"RAG 检索块   : {retrieval.get('selected_count', 0)} / 索引 {retrieval.get('chunk_count', 0)}")
         print(f"报告路径     : {result.get('report_path', '—')}")
+        if ai_result.get("status") == "failed":
+            print(f"AI 错误      : {str(ai_result.get('error', ''))[:160]}")
         print("=" * 60)
         return 0
     except EcomOpsError as exc:

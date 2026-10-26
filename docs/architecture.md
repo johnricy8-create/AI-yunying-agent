@@ -1,14 +1,22 @@
-# 架构说明（阶段一）
+# 架构说明（阶段一 + 阶段二）
 
 ## 1. 目标与边界
 
-阶段一用模拟数据跑通闭环：
+阶段一用模拟数据跑通基础闭环：
 
 ```text
 读取模拟数据 → 校验 → 指标计算 → 基线计算 → 异常识别 → 严重度排序 → Markdown 报告 → 日志
 ```
 
-不包含：大模型调用、真实数据接入、定时调度、历史库、通知、看板、任何外部写操作。
+阶段二在此之上增加：
+
+```text
+Top-N 异常 → RAG 检索（知识库 + 历史日报）→ GLM-4.7-Flash → 结构化 JSON → 报告 AI 章节
+```
+
+AI 调用失败、限流、超时或 JSON 无效时，自动回退到规则型建议，任务本身不失败。
+
+不包含：真实数据接入、定时调度、历史库、通知、看板、任何外部业务写操作。
 
 设计原则：
 
@@ -29,6 +37,8 @@
 | 配置层 | `ecom_ops/config.py`、`config/*.yaml` | 配置加载、校验、路径解析 |
 | 数据层 | `ecom_ops/data/` | CSV 读取、表头归一化、行级校验、模拟数据生成 |
 | 分析层 | `ecom_ops/analysis/` | 指标、基线、异常规则、严重度评分 |
+| RAG 层 | `ecom_ops/rag/`、`knowledge/` | 语料切分、向量索引、余弦检索 |
+| 大模型层 | `ecom_ops/llm/` | GLM 客户端、提示词、JSON 校验、重试、缓存、降级 |
 | 编排层 | `ecom_ops/graph/` | StateGraph、状态契约、节点实现 |
 | 报告层 | `ecom_ops/report/` | Jinja2 模板、Markdown 渲染、原子写入 |
 | 公共层 | `ecom_ops/utils/`、`context.py`、`exceptions.py` | 时区、文件、运行上下文、异常分类 |
@@ -47,10 +57,10 @@ load_data         读取 CSV，表头映射，行级校验，确定统计日期
 analyze_data      指标、3/5/7 自适应基线、异常规则、严重度、全局汇总
   │
   ▼
-ai_recommend      阶段一显式占位：不调用模型，不生成伪结论
+ai_recommend      RAG 检索 → GLM-4.7-Flash → 结构化 JSON；失败降级
   │
   ▼
-generate_report   渲染 Markdown，写入 reports/
+generate_report   渲染 Markdown（规则结果 + AI 章节），写入 reports/
   │
   ▼
 END
@@ -62,7 +72,7 @@ END
 |---|---|---|
 | load_data | source_path、可选 stat_date | data（有效行）、data_quality、stat_date |
 | analyze_data | data、stat_date | metrics、baselines、anomalies、global_summary |
-| ai_recommend | anomalies、metrics | ai_result（status=not_configured） |
+| ai_recommend | anomalies、metrics、stat_date | ai_result（ok / failed / disabled / not_configured / skipped） |
 | generate_report | 全部上游结果 | report_path、status=completed |
 
 节点失败时记录完整堆栈并向上抛出；入口层统一返回非零退出码，不生成误导性报告。
@@ -76,10 +86,10 @@ END
 - `run_id`、`stat_date`、`source_path`
 - `data`、`data_quality`
 - `metrics`、`baselines`、`anomalies`、`global_summary`
-- `ai_result`、`report_path`
+- `ai_result`、`force_refresh_ai`、`report_path`
 - `status`、`errors`
 
-阶段一没有检查点/持久化需求，状态直接携带 DataFrame 与明细结果，实现简单。阶段五引入历史与断点续跑时，再迁移为“状态只放引用，明细由运行上下文/存储层持有”。
+阶段一/二没有检查点/持久化需求，状态直接携带 DataFrame 与明细结果，实现简单。阶段五引入历史与断点续跑时，再迁移为“状态只放引用，明细由运行上下文/存储层持有”。
 
 ---
 
@@ -120,13 +130,15 @@ END
 
 严重度：单规则基础分 × 幅度系数（1.0–2.0），多规则累加封顶 100；≥70 高危，≥40 中危，其余低危。
 
-库存规则默认关闭，阶段一库存只展示与校验。
+库存规则默认关闭，当前库存只展示与校验。
 
 ### 5.5 报告
 
-固定 12 个章节：数据概览、全局指标、异常 Top-N、异常详情、未入 Top-N、AI 占位、规则型建议、待人工确认、数据限制、执行状态、统计口径、字段说明。
+固定 12 个章节：数据概览、全局指标、异常 Top-N、异常详情、未入 Top-N、AI 原因分析、运营建议（AI + 规则型）、待人工确认、数据限制、执行状态、统计口径、字段说明。
 
-报告只渲染，不计算；所有数字来自 `analyze_data`。同日重复运行覆盖同名报告。
+AI 成功时展示摘要、事实、可能原因、建议、人工核查与引用资料；AI 失败时明确标注并回退规则型建议。
+
+报告只渲染，不计算；指标数字来自 `analyze_data`，AI 内容来自 `ai_result`。同日重复运行覆盖同名报告。
 
 ---
 
@@ -135,7 +147,7 @@ END
 ### 配置
 
 - `.env`：密钥与机器相关变量，不提交。
-- `config/settings.yaml`：阈值、基线窗口、Top-N、目录、日志。
+- `config/settings.yaml`：阈值、基线窗口、Top-N、LLM/RAG 参数、目录、日志。
 - `config/fields.yaml`：字段契约与中文别名。
 - 优先级：命令行 > 环境变量 > `settings.yaml`。
 
@@ -157,17 +169,63 @@ END
 | 报告写入失败 | 失败退出，记录路径与原因 |
 | 未预期异常 | 记录完整堆栈，退出码非零 |
 
-阶段一不做自动重试；重试主要留给阶段二的模型调用与阶段四的调度。
+AI 调用按限流/超时/5xx 退避重试；阶段四的调度重试另行设计。
 
 ---
 
-## 7. 扩展点
+## 7. 阶段二：LLM 与 RAG
+
+### 7.1 调用链
+
+```text
+Top-N 异常
+  → 为每个商品构造检索 query
+  → embedding-3 批量向量化
+  → 本地余弦检索（知识库 + 历史日报，按日期过滤）
+  → 合并高分片段，编号 K1..Kn
+  → GLM-4.7-Flash（thinking disabled）
+  → JSON 校验（Pydantic）
+  → 成功：报告 AI 章节；失败：规则型降级
+```
+
+### 7.2 语料与索引
+
+- 知识库：`knowledge/**/*.md`，全部索引。
+- 历史日报：`reports/history/**/*.md`，只索引“异常详情（4.x）”和“运营建议（7.x）”。
+- 切分：按 Markdown 标题切块，长章节按 900 字、120 字重叠再切。
+- 向量：智谱 `embedding-3`，1024 维。
+- 索引：`data/rag/vectors.npz` + `chunks.json` + `manifest.json`，NumPy 余弦检索。
+- 重建：`tools/build_rag_index.py`；历史日报由 `tools/build_history.py` 生成。
+- 检索时过滤 `date >= stat_date` 的历史日报，避免把当天/未来信息泄漏进分析。
+
+### 7.3 提示词与输出约束
+
+- 只允许使用输入指标和检索资料。
+- 区分“数据事实”和“可能原因”；可能原因必须给置信度与证据。
+- 引用资料编号；不得编造平台政策、竞品动作、价格或库存。
+- 涉及改价、发布、资金、批量操作的建议必须 `needs_human=true`。
+- 只输出 JSON，由 Pydantic 校验；无效输出触发重试/降级。
+
+### 7.4 重试、缓存与降级
+
+- 重试：`1305/429/408/5xx/超时/连接错误` 按 5s、15s 退避，默认最多 3 次。
+- 缓存：按统计日期 + 输入 + 检索块 + 模型 + 提示词版本生成 key，成功后缓存到 `data/cache/ai/`。
+- 降级：重试后仍失败、无 Key、JSON 无效时，`ai_result.status=failed/not_configured/disabled`，报告继续生成并使用规则型建议。
+- 单次只分析严重度最高的 `max_anomalies` 个商品；检索块上限 `max_selected_chunks`，避免提示词过长。
+
+### 7.5 安全
+
+- 密钥只从 `.env` 的 `ZHIPU_API_KEY` 读取，不写入配置、日志或报告。
+- 请求日志只记录模型、耗时、检索块数、错误类型，不记录完整提示词或密钥。
+
+---
+
+## 8. 扩展点
 
 | 阶段 | 扩展方式 |
 |---|---|
-| 阶段二 | 替换 `ai_recommend` 实现；新增 `ecom_ops/llm/`；保持节点契约不变 |
 | 阶段三 | `loader` 增加 Excel 分支；`fields.yaml` 增加别名；不改分析层 |
 | 阶段四 | 新增 `scheduler.py` 与 `ecom_ops/scheduler/`；复用工作流 |
-| 阶段五 | 新增 `ecom_ops/history/`；状态改为引用式；可选 RAG |
+| 阶段五 | 新增 `ecom_ops/history/`；状态改为引用式；可评估其他嵌入模型 |
 
-BGE-M3 属于嵌入模型，阶段一、阶段二核心流程不使用；仅在阶段五评估历史报告语义检索时引入。
+BGE-M3 属于嵌入模型，当前默认方案不使用；阶段五如需历史语义检索，可在 `embedding-3` 与 BGE-M3 之间做对比。
