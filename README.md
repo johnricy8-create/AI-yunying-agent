@@ -41,6 +41,9 @@ uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 # 3.2) 有真实数据时，先做数据画像（不调用大模型）
 .venv\Scripts\python.exe tools\profile_data.py --data data\raw\销售数据.xlsx --sheet 销售数据
 
+# 3.3) 阈值敏感度工程测试（默认用公开参考样本，不改线上配置）
+.venv\Scripts\python.exe tools\threshold_sensitivity.py
+
 # 4) 生成历史日报语料（可选，用于 RAG 历史案例）
 .venv\Scripts\python.exe tools\build_history.py
 
@@ -140,6 +143,8 @@ python run.py
 │  ├─ generate_mock_data.py     # 模拟数据生成器
 │  ├─ create_data_template.py   # 生成 CSV/Excel 数据模板
 │  ├─ profile_data.py           # 真实数据画像与质量检查
+│  ├─ threshold_sensitivity.py  # 阈值敏感度工程测试
+│  ├─ build_reference_sample.py # 构建 UCI 参考样本
 │  ├─ build_history.py          # 生成历史日报语料
 │  └─ build_rag_index.py        # 构建本地向量索引
 ├─ data/
@@ -163,7 +168,7 @@ python run.py
 .venv\Scripts\python.exe -m pytest
 ```
 
-当前共 **59 个测试**，覆盖：
+当前共 **60 个测试**，覆盖：
 
 - 指标计算与昨日对比、UV/PV 分母、缺失昨日、昨日为 0；
 - 3/5/7 自适应基线、历史不足、新品首日/第二天、均值为 0；
@@ -222,6 +227,7 @@ RAG 当前使用智谱 `embedding-3`（1024 维），与 GLM 共用一把 Key；
 - `docs/field_dictionary.md`：字段字典、校验规则、数据质量代码
 - `docs/decisions.md`：需求口径、架构决策、技术栈决策
 - `docs/runbook.md`：运行、排错、配置调整、数据替换
+- `docs/threshold_sensitivity_reference.md`：参考样本阈值敏感度工程测试结果（不作为业务定案）
 
 ## 10. 安全
 

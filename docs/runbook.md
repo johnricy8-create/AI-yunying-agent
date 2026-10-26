@@ -86,6 +86,21 @@ uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 
 参考样本画像显示：54,000 行全部有效、0 隔离行、521 行警告；统计日 2011-11-27 触发 119 个异常，说明 v0.1 在该分布下偏敏感，真实数据校准是必要的。
 
+### 2.4 阈值敏感度工程测试
+
+```powershell
+.venv\Scripts\python.exe tools\threshold_sensitivity.py
+```
+
+默认使用参考样本最后 30 天、固定基线配置，只改变异常阈值，输出：
+
+- `docs/threshold_sensitivity_reference.md`：Markdown 摘要；
+- `reports/threshold_sensitivity/ofat.csv`：单参数敏感度；
+- `reports/threshold_sensitivity/grid.csv`：二维网格；
+- `reports/threshold_sensitivity/profiles.csv`：工程档位对比。
+
+参考样本结果：v0.1 日均异常 98.8 个、异常率 32.9%、高危日均 43.03；工程严格档约 36 个/天、12.0%。这只能说明阈值方向，**不修改 v0.1，也不作为业务定案**。
+
 ---
 
 ## 3. 运行
@@ -159,7 +174,7 @@ RAG 检索块   : 12 / 索引 141
 预期：
 
 ```text
-59 passed
+60 passed
 ```
 
 测试覆盖指标、基线、异常边界、数据校验、RAG 切分/检索、AI JSON 解析/重试/缓存/降级、端到端工作流、报告章节、同日覆盖、日志 run_id、缺失文件快速失败。

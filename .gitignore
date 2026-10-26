@@ -16,6 +16,7 @@ reports/*.md
 reports/history/
 reports/archive/
 reports/reference_test/
+reports/threshold_sensitivity/
 data/rag/
 data/cache/
 
