@@ -1,6 +1,6 @@
 """销售数据读取。
 
-阶段一只支持 CSV；Excel 留到阶段三，届时再引入 openpyxl。
+支持 CSV 与 Excel（.xlsx，openpyxl）。
 读取时统一按字符串处理，逐行类型转换交给 validator，
 这样可以在报告中精确指出哪一行、哪个字段有问题。
 """
@@ -45,22 +45,62 @@ def _read_csv(path: Path) -> pd.DataFrame:
     raise DataLoadError(f"无法用 UTF-8/GBK 读取数据文件: {path}\n{last_error}")
 
 
-def load_sales_data(path: str | Path, fields: FieldsConfig) -> pd.DataFrame:
-    """读取 CSV 并完成表头归一化。
+def _read_excel(path: Path, sheet_name: str | None) -> tuple[pd.DataFrame, str]:
+    try:
+        excel = pd.ExcelFile(path, engine="openpyxl")
+    except Exception as exc:
+        raise DataLoadError(f"Excel 读取失败: {path}\n{exc}") from exc
+
+    sheet_names = list(excel.sheet_names)
+    target = sheet_name or sheet_names[0]
+    if target not in sheet_names:
+        excel.close()
+        raise DataLoadError(
+            f"Excel 工作表不存在: {target}；可用工作表: {'、'.join(sheet_names)}"
+        )
+    excel.close()
+    try:
+        df = pd.read_excel(
+            path,
+            sheet_name=target,
+            dtype=str,
+            keep_default_na=False,
+            engine="openpyxl",
+        )
+    except Exception as exc:
+        raise DataLoadError(f"Excel 工作表解析失败: {target}\n{exc}") from exc
+    if df.empty:
+        raise DataLoadError(f"Excel 工作表没有数据行: {target}")
+    logger.info("读取 Excel 成功: %s（工作表 %s，%d 行）", path, target, len(df))
+    return df, target
+
+
+def load_sales_data(
+    path: str | Path,
+    fields: FieldsConfig,
+    sheet_name: str | None = None,
+) -> pd.DataFrame:
+    """读取 CSV/Excel 并完成表头归一化。
 
     返回的 DataFrame 全部为字符串列，另含 `_row_number`。
+    Excel 默认读取第一个工作表，可用 sheet_name 指定。
     """
     file_path = Path(path)
     if not file_path.exists():
         raise DataLoadError(f"数据文件不存在: {file_path}")
-    if file_path.suffix.lower() in {".xlsx", ".xls"}:
-        raise DataLoadError(
-            "阶段一暂不支持 Excel，请先使用 CSV；Excel 接入安排在阶段三。"
-        )
-    if file_path.suffix.lower() != ".csv":
-        raise DataLoadError(f"不支持的数据格式: {file_path.suffix}，阶段一只支持 CSV")
 
-    raw = _read_csv(file_path)
+    suffix = file_path.suffix.lower()
+    if suffix == ".csv":
+        raw = _read_csv(file_path)
+    elif suffix == ".xlsx":
+        raw, _ = _read_excel(file_path, sheet_name)
+    elif suffix == ".xls":
+        raise DataLoadError("旧版 .xls 不支持，请用 Excel 另存为 .xlsx 后再导入")
+    else:
+        raise DataLoadError(
+            f"不支持的数据格式: {file_path.suffix}，当前支持 .csv / .xlsx"
+        )
+
     if raw.empty:
         raise DataLoadError(f"数据文件没有数据行: {file_path}")
 

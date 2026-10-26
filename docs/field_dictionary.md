@@ -14,8 +14,8 @@
 | platform | 平台 | string | 否 | 为空时填“未填写” |
 | category | 类目 | string | 否 | 为空时填“未填写” |
 | price | 单价 | float | 是 | 必须大于 0 |
-| cost | 成本 | float | 否 | 默认 0；阶段一不参与核心指标，仅做成本高于单价的警告 |
-| stock | 库存 | int | 是 | 必须 >= 0；阶段一仅展示与校验 |
+| cost | 成本 | float | 否 | 默认 0；当前不参与核心指标，仅做成本高于单价的警告 |
+| stock | 库存 | int | 是 | 必须 >= 0；当前仅展示与校验 |
 | pv | 浏览量 | int | 是 | 当前业务口径等同 UV，作为转化率分母 |
 | uv | 访客数 | int | 否 | 可选；存在且 > 0 时优先作为转化率分母，否则回退 pv |
 | orders | 订单量 | int | 是 | 必须 >= 0，且不能大于 pv / uv |
@@ -35,6 +35,23 @@
 `日期/统计日期`、`商品ID/商品编号/SKU`、`商品名称/商品名`、`商品简介/简介/描述`、`店铺/店铺名称`、`平台`、`类目/分类`、`单价/价格`、`成本`、`库存`、`浏览量/PV`、`访客数/UV`、`订单量/订单数`、`销售额/销售金额`、`退款金额/退款`。
 
 完整映射见 `config/fields.yaml`。
+
+### 数据模板
+
+```powershell
+.venv\Scripts\python.exe tools\create_data_template.py
+```
+
+- `data/templates/sales_data_template.csv`：中文表头，UTF-8 with BOM。
+- `data/templates/sales_data_template.xlsx`：“销售数据”工作表 + “字段说明”工作表。
+
+模板表头使用中文别名；程序会自动映射为内部字段。不要随意改表头，除非在 `config/fields.yaml` 同步增加别名。
+
+### Excel 读取
+
+- 支持 `.xlsx`；旧版 `.xls` 请另存为 `.xlsx`。
+- 默认读取第一个工作表；多工作表时用 `run.py --sheet 销售数据` 指定。
+- 读取前建议先运行 `tools/profile_data.py` 做数据画像。
 
 ---
 

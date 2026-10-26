@@ -15,6 +15,7 @@ class AgentState(TypedDict, total=False):
     run_id: str
     stat_date: str
     source_path: str
+    sheet_name: str
 
     data: pd.DataFrame
     data_quality: dict[str, Any]

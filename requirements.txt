@@ -1,4 +1,4 @@
-# 电商运营 Agent - 阶段二依赖
+# 电商运营 Agent - 阶段一至三依赖
 # 环境：Windows + uv 0.13.5 + CPython 3.12.15
 # 生成方式：uv pip freeze（2026-10-26），全部精确锁定。
 # 安装：uv pip install -r requirements.txt
@@ -9,6 +9,7 @@ certifi==2026.10.23
 charset-normalizer==3.5.2
 colorama==0.4.6
 distro==1.9.0
+et-xmlfile==2.0.0
 h11==0.16.0
 httpcore==1.0.9
 httpcore2==2.16.0
@@ -31,6 +32,7 @@ langsmith==0.14.12
 markupsafe==3.0.4
 numpy==2.5.4
 openai==3.37.0
+openpyxl==3.1.5
 orjson==3.13.0
 ormsgpack==1.13.0
 packaging==26.3

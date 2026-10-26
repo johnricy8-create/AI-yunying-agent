@@ -1,4 +1,4 @@
-# 架构说明（阶段一 + 阶段二）
+# 架构说明（阶段一至三）
 
 ## 1. 目标与边界
 
@@ -35,7 +35,7 @@ AI 调用失败、限流、超时或 JSON 无效时，自动回退到规则型�
 |---|---|---|
 | 入口层 | `run.py` | 参数解析、配置加载、日志初始化、调用工作流、退出码 |
 | 配置层 | `ecom_ops/config.py`、`config/*.yaml` | 配置加载、校验、路径解析 |
-| 数据层 | `ecom_ops/data/` | CSV 读取、表头归一化、行级校验、模拟数据生成 |
+| 数据层 | `ecom_ops/data/` | CSV/Excel 读取、表头归一化、行级校验、模拟数据生成、数据模板 |
 | 分析层 | `ecom_ops/analysis/` | 指标、基线、异常规则、严重度评分 |
 | RAG 层 | `ecom_ops/rag/`、`knowledge/` | 语料切分、向量索引、余弦检索 |
 | 大模型层 | `ecom_ops/llm/` | GLM 客户端、提示词、JSON 校验、重试、缓存、降级 |
@@ -97,8 +97,9 @@ END
 
 ### 5.1 读取与校验
 
-- `loader`：只支持 CSV；按 UTF-8-SIG → UTF-8 → GBK 尝试；全部按字符串读取；表头归一化。
+- `loader`：支持 CSV 与 `.xlsx`；CSV 按 UTF-8-SIG → UTF-8 → GBK 尝试；Excel 用 openpyxl，默认第一个工作表，可用 `--sheet` 指定；全部按字符串读取；表头归一化。
 - `validator`：逐行类型转换与业务校验；错误行隔离；可选字段缺失给默认值与警告；重复键保留最后一条。
+- 模板：`tools/create_data_template.py` 生成中文表头 CSV/Excel；`tools/profile_data.py` 在正式分析前做数据画像。
 - 没有可用行时任务失败。
 
 ### 5.2 指标
@@ -224,7 +225,7 @@ Top-N 异常
 
 | 阶段 | 扩展方式 |
 |---|---|
-| 阶段三 | `loader` 增加 Excel 分支；`fields.yaml` 增加别名；不改分析层 |
+| 阶段三 | Excel 分支、模板、数据画像已完成；等待真实样例校准阈值 |
 | 阶段四 | 新增 `scheduler.py` 与 `ecom_ops/scheduler/`；复用工作流 |
 | 阶段五 | 新增 `ecom_ops/history/`；状态改为引用式；可评估其他嵌入模型 |
 

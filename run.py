@@ -4,6 +4,7 @@
     python run.py
     python run.py --date 2026-10-25
     python run.py --data data/mock/sales_mock.csv --date 2026-10-25
+    python run.py --data data/raw/sales.xlsx --sheet 销售数据 --date 2026-10-25
     python run.py --top-n 5
     python run.py --no-ai
     python run.py --refresh-ai
@@ -32,7 +33,8 @@ from ecom_ops.utils.files import resolve_path
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="电商运营 Agent - 阶段一手动运行")
     parser.add_argument("--date", default=None, help="统计日期，格式 YYYY-MM-DD；默认 D-1")
-    parser.add_argument("--data", default=None, help="数据 CSV 路径；默认使用 settings.yaml")
+    parser.add_argument("--data", default=None, help="数据 CSV/Excel 路径；默认使用 settings.yaml")
+    parser.add_argument("--sheet", default=None, help="Excel 工作表名称；默认第一个工作表")
     parser.add_argument("--config", default=None, help="settings.yaml 路径")
     parser.add_argument("--fields", default=None, help="fields.yaml 路径")
     parser.add_argument("--report-dir", default=None, help="报告输出目录")
@@ -116,6 +118,7 @@ def main(argv: list[str] | None = None) -> int:
             source_path=settings.app.data_file,
             stat_date=stat_date,
             force_refresh_ai=args.refresh_ai,
+            sheet_name=args.sheet,
         )
 
         summary = result.get("global_summary", {}) or {}

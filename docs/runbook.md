@@ -1,4 +1,4 @@
-# 运行手册（阶段一 + 阶段二）
+# 运行手册（阶段一至三）
 
 ## 1. 环境准备
 
@@ -43,6 +43,32 @@ uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 .venv\Scripts\python.exe tools\generate_mock_data.py --products 200 --days 14 --seed 42
 .venv\Scripts\python.exe tools\generate_mock_data.py --end-date 2026-10-25
 ```
+
+### 2.1 生成真实数据模板
+
+```powershell
+.venv\Scripts\python.exe tools\create_data_template.py
+```
+
+输出：
+
+- `data/templates/sales_data_template.csv`：UTF-8 with BOM，中文表头。
+- `data/templates/sales_data_template.xlsx`：含“销售数据”和“字段说明”两个工作表。
+
+模板表头是中文别名，加载器会通过 `config/fields.yaml` 自动映射；不要随意改表头，除非同步增加别名。
+
+### 2.2 真实数据画像
+
+拿到真实 CSV/Excel 后，先做数据画像，不生成报告、不调用大模型：
+
+```powershell
+.venv\Scripts\python.exe tools\profile_data.py --data data\raw\销售数据.csv
+.venv\Scripts\python.exe tools\profile_data.py --data data\raw\销售数据.xlsx --sheet 销售数据 --top 10
+```
+
+画像会输出：表头映射、空值、重复/错误/警告、日期覆盖、缺日商品、数值分位数、转化率分布，以及阈值校准提示。
+
+> 画像输出可能包含真实业务数据，不要直接公开粘贴。
 
 ---
 
@@ -101,6 +127,7 @@ RAG 检索块   : 12 / 索引 141
 .venv\Scripts\python.exe run.py --no-ai          # 只出规则型报告
 .venv\Scripts\python.exe run.py --no-rag         # 不启用检索
 .venv\Scripts\python.exe run.py --refresh-ai     # 忽略 AI 缓存
+.venv\Scripts\python.exe run.py --data data\raw\销售数据.xlsx --sheet 销售数据
 ```
 
 不传 `--date` 时默认 D-1（北京时间）；如果数据中不存在 D-1，会自动回退到最新可用日期，并在日志中给出 warning。
@@ -116,7 +143,7 @@ RAG 检索块   : 12 / 索引 141
 预期：
 
 ```text
-54 passed
+59 passed
 ```
 
 测试覆盖指标、基线、异常边界、数据校验、RAG 切分/检索、AI JSON 解析/重试/缓存/降级、端到端工作流、报告章节、同日覆盖、日志 run_id、缺失文件快速失败。
@@ -191,15 +218,23 @@ AI 与 RAG 参数在 `config/settings.yaml` 的 `llm` / `rag` 段：
 当前仅支持 CSV。可以把任意符合字段字典的 CSV 传给 `--data`：
 
 ```powershell
+# CSV
 .venv\Scripts\python.exe run.py --data D:\data\sales_2026-10-25.csv --date 2026-10-25
+
+# Excel（默认第一个工作表）
+.venv\Scripts\python.exe run.py --data D:\data\sales_2026-10-25.xlsx --date 2026-10-25
+
+# Excel 指定工作表
+.venv\Scripts\python.exe run.py --data D:\data\sales_2026-10-25.xlsx --sheet 销售数据 --date 2026-10-25
 ```
 
 要求：
 
 - 必须有 `stat_date`、`product_id`、`product_name`、`price`、`stock`、`pv`、`orders`、`sales_amount`；
 - 中文表头可通过 `config/fields.yaml` 的 `aliases` 映射；
-- 编码优先 UTF-8 with BOM，也兼容 UTF-8/GBK；
-- Excel（`.xlsx/.xls`）当前不支持，会明确提示留到阶段三；
+- CSV 编码优先 UTF-8 with BOM，也兼容 UTF-8/GBK；
+- Excel 支持 `.xlsx`；旧版 `.xls` 请另存为 `.xlsx`；
+- 先用 `tools/profile_data.py` 做画像，再跑分析；
 - 不要假设已有真实电商平台 API。
 
 ---
@@ -214,6 +249,9 @@ AI 与 RAG 参数在 `config/settings.yaml` 的 `llm` / `rag` 段：
 | `ZoneInfoNotFoundError` | 缺少 tzdata | 安装 `tzdata`（已在 requirements.txt） |
 | 控制台中文乱码 | 终端编码与 UTF-8 不一致 | 报告和日志文件本身是 UTF-8；可换 Windows Terminal 或 `chcp 65001` |
 | `数据文件不存在` | 路径错误或未生成模拟数据 | 运行 `tools/generate_mock_data.py`，或检查 `--data` |
+| `旧版 .xls 不支持` | 文件是旧版 Excel | 用 Excel 另存为 `.xlsx` |
+| `Excel 工作表不存在` | `--sheet` 名称不对 | 用 Excel 查看工作表名，或先运行 `profile_data.py` |
+| `Excel 工作表没有数据行` | 选错工作表或表为空 | 检查 `--sheet` 与模板 |
 | `统计日期 ... 没有可用数据` | 指定日期不在数据中 | 查看日志中的可用日期范围，换 `--date` |
 | `数据校验后没有可用行` | 数据质量问题太多 | 查看报告/日志中的数据质量摘要，修正源数据 |
 | `报告写入失败` | 文件被占用/无权限 | 关闭打开的 Excel/Markdown 预览，或换 `--report-dir` |
@@ -234,6 +272,9 @@ AI 与 RAG 参数在 `config/settings.yaml` 的 `llm` / `rag` 段：
 - [ ] 坏行被隔离并在报告中统计
 - [ ] 日志含 run_id、节点、状态、报告路径
 - [ ] 同日重复运行覆盖报告，不重复追加
+- [ ] CSV 与 `.xlsx` 均可读取，Excel 可用 `--sheet` 指定工作表
+- [ ] `tools/create_data_template.py` 能生成 CSV/Excel 模板
+- [ ] `tools/profile_data.py` 能输出表头、空值、质量、日期覆盖、数值分布
 - [ ] RAG 索引可构建，检索结果带来源与相似度
 - [ ] AI 成功时报告包含摘要、事实、原因、建议、引用
 - [ ] AI 失败时报告仍生成，并明确标注规则型降级
@@ -245,7 +286,7 @@ AI 与 RAG 参数在 `config/settings.yaml` 的 `llm` / `rag` 段：
 
 ## 9. 后续阶段
 
-- 阶段三：真实 CSV/Excel、字段映射、数据质量、阈值校准。
+- 阶段三：CSV/Excel、模板、数据画像已完成；等待脱敏真实样例后校准阈值。
 - 阶段四：APScheduler 每日 09:00、并发防护、Windows 任务计划程序。
 - 阶段五：历史记录、建议有效性、通知与看板；可评估其他嵌入模型。
 

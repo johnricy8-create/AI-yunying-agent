@@ -33,7 +33,11 @@ def load_data_node(state: AgentState, context: RunContext) -> dict[str, Any]:
     context.logger.info("[load_data] 开始读取数据: %s", state.get("source_path"))
     try:
         source_path = Path(str(state.get("source_path", "")))
-        raw = load_sales_data(source_path, context.settings.fields)
+        raw = load_sales_data(
+            source_path,
+            context.settings.fields,
+            sheet_name=str(state.get("sheet_name", "") or "") or None,
+        )
         validation = validate_sales_data(
             raw,
             context.settings.fields,

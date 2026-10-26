@@ -39,12 +39,14 @@ def run_workflow(
     source_path: str | Path,
     stat_date: str | None = None,
     force_refresh_ai: bool = False,
+    sheet_name: str | None = None,
 ) -> dict[str, Any]:
     """执行一次完整工作流，返回最终状态。"""
     compiled = build_workflow(context)
     initial: AgentState = {
         "run_id": run_id,
         "source_path": str(source_path),
+        "sheet_name": sheet_name or "",
         "stat_date": stat_date or "",
         "force_refresh_ai": force_refresh_ai,
         "status": "started",
