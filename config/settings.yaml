@@ -1,0 +1,64 @@
+# 电商运营 Agent - 业务配置
+# 所有阈值均为阶段一默认值，后续应结合真实数据校准。
+# 密钥不写在这里，只放 .env。
+
+app:
+  # 统一使用北京时间；Windows 需要 tzdata 包
+  timezone: Asia/Shanghai
+  # 默认模拟数据文件（相对项目根目录）
+  data_file: data/mock/sales_mock.csv
+  # 报告与日志目录（相对项目根目录，可在命令行覆盖）
+  report_dir: reports
+  log_dir: logs
+
+baseline:
+  # 候选窗口（天），不含统计日当天
+  windows: [3, 5, 7]
+  # 变异系数分界：CV < cv_low 用最长窗口；cv_low <= CV < cv_high 用中间窗口；否则用最短窗口
+  cv_low: 0.15
+  cv_high: 0.30
+  # 正常置信度要求的最少有效历史天数
+  min_valid_days: 3
+  # 最多回看多少个自然日的历史
+  lookback_days: 7
+  # 新品首日豁免；第 2 天起参与判定并标注低置信
+  new_product_exempt_days: 1
+
+anomaly:
+  # 比率类规则的最小样本门槛，避免小样本误报
+  min_pv_for_ratio: 50
+  min_pv_for_zero_conversion: 100
+  min_pv_for_high_pv: 100
+  min_orders_for_drop: 3
+  # 触发阈值
+  pv_drop_ratio: 0.70
+  order_drop_ratio: 0.70
+  high_pv_ratio: 1.20
+  low_cr_ratio: 0.60
+  # 各规则基础严重分
+  severity:
+    zero_conversion: 50
+    pv_drop: 30
+    order_drop: 30
+    high_pv_low_cr: 25
+  # 严重度分级
+  levels:
+    high: 70
+    medium: 40
+  # 库存异常默认关闭：阶段一库存只展示与校验
+  inventory:
+    enabled: false
+    low_stock_days: 3
+    overstock_days: 60
+
+report:
+  # 报告展示的异常商品数量
+  top_n: 10
+  # 商品简介在报告中的最大展示字数
+  description_max_chars: 200
+  filename_pattern: "{date}_daily_report.md"
+
+logging:
+  level: INFO
+  filename: ecom_ops.log
+  retention_days: 30

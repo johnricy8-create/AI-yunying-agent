@@ -1,0 +1,114 @@
+# 数据字段契约
+# 内部统一使用英文 snake_case；报告展示用 label。
+# aliases 用于阶段三真实 CSV/Excel 的表头映射，阶段一模拟数据直接使用 canonical 字段名。
+
+fields:
+  stat_date:
+    label: 统计日期
+    dtype: date
+    required: true
+    description: 数据所属日期，格式 YYYY-MM-DD
+  product_id:
+    label: 商品ID
+    dtype: string
+    required: true
+    description: 商品唯一标识
+  product_name:
+    label: 商品名称
+    dtype: string
+    required: true
+    description: 商品展示名称
+  product_desc:
+    label: 商品简介
+    dtype: string
+    required: false
+    description: 商品卖点或简介；为空时报告标注“未填写”
+  shop:
+    label: 店铺
+    dtype: string
+    required: false
+    description: 店铺名称；为空时填“未填写”
+  platform:
+    label: 平台
+    dtype: string
+    required: false
+    description: 销售平台；为空时填“未填写”
+  category:
+    label: 类目
+    dtype: string
+    required: false
+    description: 商品类目；为空时填“未填写”
+  price:
+    label: 单价
+    dtype: float
+    required: true
+    description: 商品单价，单位元
+  cost:
+    label: 成本
+    dtype: float
+    required: false
+    description: 商品成本，单位元；阶段一不参与核心指标
+  stock:
+    label: 库存
+    dtype: int
+    required: true
+    description: 统计日库存快照；阶段一仅展示与校验
+  pv:
+    label: 浏览量
+    dtype: int
+    required: true
+    description: 浏览量；当前业务口径等同 UV，作为转化率分母
+  uv:
+    label: 访客数
+    dtype: int
+    required: false
+    description: 可选；存在时优先作为转化率分母，否则回退浏览量
+  orders:
+    label: 订单量
+    dtype: int
+    required: true
+    description: 当日订单数
+  sales_amount:
+    label: 销售额
+    dtype: float
+    required: true
+    description: 已扣除退款、不含税的净销售额
+  refund_amount:
+    label: 退款金额
+    dtype: float
+    required: false
+    description: 当日退款金额；仅用于退款率与数据校验，不再从销售额中二次扣减
+
+aliases:
+  日期: stat_date
+  统计日期: stat_date
+  date: stat_date
+  商品ID: product_id
+  商品编号: product_id
+  sku: product_id
+  SKU: product_id
+  商品名称: product_name
+  商品名: product_name
+  名称: product_name
+  商品简介: product_desc
+  简介: product_desc
+  描述: product_desc
+  店铺: shop
+  店铺名称: shop
+  平台: platform
+  类目: category
+  分类: category
+  单价: price
+  价格: price
+  成本: cost
+  库存: stock
+  浏览量: pv
+  PV: pv
+  访客数: uv
+  UV: uv
+  订单量: orders
+  订单数: orders
+  销售额: sales_amount
+  销售金额: sales_amount
+  退款金额: refund_amount
+  退款: refund_amount

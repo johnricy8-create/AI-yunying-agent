@@ -1,0 +1,233 @@
+# 电商运营日报 · {{ stat_date }}
+
+> 报告生成时间：{{ report_time }} ｜ 统计日期：{{ stat_date }} ｜ run_id：`{{ run_id }}` ｜ 执行状态：{{ status_label }}
+
+---
+
+## 1. 数据概览
+
+| 项目 | 数值 |
+|---|---:|
+| 数据文件 | `{{ source_file }}` |
+| 数据日期范围 | {% if available_dates %}{{ available_dates[0] }} ~ {{ available_dates[-1] }}{% else %}—{% endif %} |
+| 总行数 | {{ summary.get('total_rows', 0)|fmt_int }} |
+| 有效行数 | {{ summary.get('valid_rows', 0)|fmt_int }} |
+| 隔离行数 | {{ summary.get('invalid_rows', 0)|fmt_int }} |
+| 带警告行数 | {{ summary.get('warning_rows', 0)|fmt_int }} |
+| 参与分析商品数 | {{ global_summary.get('product_count', 0)|fmt_int }} |
+
+{% if summary.get('error_counts') %}
+**数据错误统计**
+
+| 错误类型 | 次数 |
+|---|---:|
+{% for code, count in summary.get('error_counts', {}).items() %}
+| `{{ code }}` | {{ count }} |
+{% endfor %}
+{% else %}
+本次没有数据错误。
+{% endif %}
+
+{% if summary.get('warning_counts') %}
+**数据警告统计**
+
+| 警告类型 | 次数 |
+|---|---:|
+{% for code, count in summary.get('warning_counts', {}).items() %}
+| `{{ code }}` | {{ count }} |
+{% endfor %}
+{% endif %}
+
+{% if data_quality.get('invalid_sample') %}
+**隔离行样例（最多 10 行）**
+
+| 行号 | 商品ID | 统计日期 | 错误原因 |
+|---:|---|---|---|
+{% for row in data_quality.get('invalid_sample', []) %}
+| {{ row.get('_row_number', '') }} | {{ row.get('product_id', '')|md }} | {{ row.get('stat_date', '')|md }} | {{ row.get('_errors', '')|md }} |
+{% endfor %}
+{% endif %}
+
+---
+
+## 2. 全局指标
+
+| 指标 | 数值 |
+|---|---:|
+| 总浏览量 | {{ global_summary.get('total_pv', 0)|fmt_int }} |
+| 总订单量 | {{ global_summary.get('total_orders', 0)|fmt_int }} |
+| 总销售额（净额） | {{ global_summary.get('total_sales', 0)|fmt_money }} |
+| 整体转化率 | {{ global_summary.get('overall_cr')|fmt_pct }} |
+| 整体浏览量变化率 | {{ global_summary.get('overall_pv_change_rate')|fmt_change }} |
+| 零订单商品数 | {{ global_summary.get('zero_order_products', 0)|fmt_int }} |
+| 总退款金额 | {{ global_summary.get('total_refund', 0)|fmt_money }} |
+
+{% if conversion_mode == 'uv' %}
+> 转化率分母：UV（访客数）。
+{% else %}
+> 转化率分母：浏览量。当前数据未提供独立 UV，浏览量按 UV 口径使用。
+{% endif %}
+
+---
+
+## 3. 异常商品 Top {{ top_n }}
+
+{% if top_anomalies %}
+| # | 商品 | 店铺 / 平台 | 今日浏览量 | 基线浏览量 | 订单量 | 销售额 | 转化率 | 浏览量变化率 | 异常类型 | 严重度 | 得分 |
+|---:|---|---|---:|---:|---:|---:|---:|---:|---|---|---:|
+{% for a in top_anomalies %}
+| {{ loop.index }} | {{ a.product_name|md }}<br>`{{ a.product_id }}` | {{ a.shop|md }} / {{ a.platform|md }} | {{ a.pv_today|fmt_int }} | {{ a.pv_baseline|fmt_float(1) }} | {{ a.orders_today|fmt_int }} | {{ a.sales_today|fmt_money }} | {{ a.cr_today|fmt_pct }} | {{ a.pv_change_rate|fmt_change }} | {{ a.anomaly_types|join('、') }} | {{ a.severity_level }} | {{ a.severity_score|fmt_float(1) }} |
+{% endfor %}
+{% else %}
+本日未发现触发规则的异常商品。
+{% endif %}
+
+---
+
+## 4. 异常详情
+
+{% if top_anomalies %}
+{% for a in top_anomalies %}
+### 4.{{ loop.index }} {{ a.product_name }}（{{ a.product_id }}）
+
+- 店铺 / 平台 / 类目：{{ a.shop|md }} / {{ a.platform|md }} / {{ a.category|md }}
+- 商品简介：{{ a.product_desc|truncate_desc(description_max_chars)|md }}
+- 浏览量：今日 {{ a.pv_today|fmt_int }}；昨日 {{ a.pv_yesterday|fmt_int }}；基线 {{ a.pv_baseline|fmt_float(1) }}（{{ a.pv_baseline_window }} 日均值，有效 {{ a.pv_baseline_days }} 天，置信度 {{ a.pv_baseline_confidence|conf }}）
+- 订单量：今日 {{ a.orders_today|fmt_int }}；昨日 {{ a.orders_yesterday|fmt_int }}；基线 {{ a.orders_baseline|fmt_float(1) }}（{{ a.orders_baseline_window }} 日均值，有效 {{ a.orders_baseline_days }} 天，置信度 {{ a.orders_baseline_confidence|conf }}）
+- 销售额：{{ a.sales_today|fmt_money }}；退款金额：{{ a.refund_today|fmt_money }}
+- 转化率：今日 {{ a.cr_today|fmt_pct }}；基线 {{ a.cr_baseline|fmt_pct }}
+- 浏览量变化率：{{ a.pv_change_rate|fmt_change }}
+- 库存：{{ a.stock|fmt_int }}
+- 异常类型：{{ a.anomaly_types|join('、') }}
+- 严重度：{{ a.severity_level }}（{{ a.severity_score|fmt_float(1) }} 分）{% if a.low_confidence %}；基线置信度低，结论需人工复核{% endif %}
+
+**触发规则**
+
+| 规则 | 基础分 | 幅度系数 | 得分 | 说明 |
+|---|---:|---:|---:|---|
+{% for hit in a.hits %}
+| {{ hit.label|md }} | {{ hit.base_score|fmt_float(1) }} | {{ hit.factor|fmt_float(2) }} | {{ hit.score|fmt_float(1) }} | {{ hit.detail|md }} |
+{% endfor %}
+
+{% endfor %}
+{% else %}
+无异常详情。
+{% endif %}
+
+---
+
+## 5. 未进入 Top-{{ top_n }} 的异常
+
+{% if other_anomalies %}
+共有 {{ other_anomalies|length }} 个异常商品未在详情中展开。
+
+| 异常类型 | 商品数 |
+|---|---:|
+{% for label, count in other_type_counts.items() %}
+| {{ label|md }} | {{ count }} |
+{% endfor %}
+
+> 同一商品可能命中多类异常，因此按类型计数之和可能大于商品数。
+{% else %}
+无。
+{% endif %}
+
+---
+
+## 6. AI 原因分析（阶段一占位）
+
+{{ ai_result.get('message', '阶段一未接入大模型。') }}
+
+- AI 状态：`{{ ai_result.get('status', 'not_configured') }}`
+- 提供商：{{ ai_result.get('provider') or '未配置' }}
+
+> 阶段二将把异常商品的指标、基线、商品简介等证据送入对话模型，并要求模型区分“数据事实”与“待验证假设”。本阶段不生成任何伪 AI 结论。
+
+---
+
+## 7. 运营优化建议（规则型，非 AI）
+
+> 以下内容由固定规则生成，仅用于提示核查方向，不是大模型结论，也不代表已经确认的原因。
+
+{% if suggestion_groups %}
+{% for group in suggestion_groups %}
+### {{ group.label }}
+
+- 涉及商品：{{ group.products|join('、') }}
+- 核查方向：
+{% for direction in group.directions %}
+  - {{ direction }}
+{% endfor %}
+
+{% endfor %}
+{% else %}
+本日没有触发规则的异常，暂无规则型建议。
+{% endif %}
+
+---
+
+## 8. 待人工确认事项
+
+{% for item in manual_confirmations %}
+- {{ item }}
+{% endfor %}
+
+---
+
+## 9. 数据限制
+
+{% for item in data_limitations %}
+- {{ item }}
+{% endfor %}
+
+---
+
+## 10. 执行状态
+
+| 项目 | 内容 |
+|---|---|
+| 执行状态 | {{ status_label }} |
+| 流水线状态 | {{ pipeline_status }} |
+| run_id | `{{ run_id }}` |
+| 统计日期 | {{ stat_date }} |
+| 报告路径 | `{{ report_path }}` |
+| 数据质量 | 有效 {{ summary.get('valid_rows', 0)|fmt_int }} 行 / 隔离 {{ summary.get('invalid_rows', 0)|fmt_int }} 行 |
+| AI 状态 | {{ ai_result.get('status', 'not_configured') }} |
+
+---
+
+## 11. 统计口径
+
+- 转化率 = 订单量 ÷ 转化率分母；当前分母优先 UV，缺失时回退浏览量。
+- 浏览量变化率 =（今日浏览量 − 昨日浏览量）÷ 昨日浏览量；昨日为 0 或缺失时显示“—”。
+- 基线：统计日前 {{ baseline_config.lookback_days }} 个自然日内，按变异系数在 {{ baseline_config.windows|join(' / ') }} 日均值之间自适应选择；历史不足 {{ baseline_config.min_valid_days }} 天时标记低置信。
+- 新品：首日豁免，第 2 天起参与判定并标记低置信。
+- 零转化：浏览量 ≥ {{ anomaly_config.min_pv_for_zero_conversion }} 且订单量为 0。
+- 浏览量骤降：今日浏览量 ≤ 基线 × {{ anomaly_config.pv_drop_ratio }}，且基线浏览量 ≥ {{ anomaly_config.min_pv_for_ratio }}。
+- 订单量骤降：今日订单量 ≤ 基线 × {{ anomaly_config.order_drop_ratio }}，且基线订单量 ≥ {{ anomaly_config.min_orders_for_drop }}。
+- 高浏览低转化：今日浏览量 ≥ 基线 × {{ anomaly_config.high_pv_ratio }}，今日转化率 ≤ 基线转化率 × {{ anomaly_config.low_cr_ratio }}，且今日浏览量 ≥ {{ anomaly_config.min_pv_for_high_pv }}。
+- 严重度：单规则基础分 × 幅度系数（封顶 2.0），多规则累加封顶 100；≥ {{ anomaly_config.levels.high }} 高危，≥ {{ anomaly_config.levels.medium }} 中危，其余低危。
+- 销售额为已扣退款、不含税的净额；退款金额不再二次扣减。
+- 报告默认展示 Top {{ top_n }} 异常详情，其余仅统计数量与类型。
+- 以上阈值为阶段一默认值，尚未用真实业务数据校准，可能偏敏感或偏保守；阶段三接入真实数据后应复盘调整。
+
+---
+
+## 12. 附录：字段与数据说明
+
+| 字段 | 含义 | 说明 |
+|---|---|---|
+| stat_date | 统计日期 | 数据所属日期 |
+| product_id | 商品ID | 商品唯一标识 |
+| product_name | 商品名称 | 展示名称 |
+| product_desc | 商品简介 | 报告内截断展示 |
+| shop / platform / category | 店铺 / 平台 / 类目 | 商品维度信息 |
+| price / cost | 单价 / 成本 | 成本阶段一不参与核心指标 |
+| stock | 库存 | 阶段一仅展示与校验 |
+| pv | 浏览量 | 当前按 UV 口径使用 |
+| uv | 访客数 | 可选；存在时优先作为转化率分母 |
+| orders | 订单量 | 当日订单数 |
+| sales_amount | 销售额 | 已扣退款、不含税净额 |
+| refund_amount | 退款金额 | 用于校验，不再二次扣减 |
+
+完整字段字典见 `docs/field_dictionary.md`。报告由阶段一规则引擎生成，未调用大模型。
