@@ -37,6 +37,7 @@ def settings(tmp_path: Path, base_settings):
         app=app,
         llm=replace(base_settings.llm, enabled=False),
         rag=replace(base_settings.rag, enabled=False),
+        history=replace(base_settings.history, enabled=False),
     )
 
 

@@ -1,0 +1,97 @@
+# 运营历史复盘报告
+
+> 报告生成时间：{{ report_time }} ｜ 历史区间：{{ overview.first_date or '—' }} ~ {{ overview.last_date or '—' }}
+> 历史库：`{{ db_path }}` ｜ 报告路径：`{{ report_path }}` ｜ 建议观察窗口：后续 {{ lookahead_days }} 个有数据交易日
+
+---
+
+## 1. 历史概览
+
+| 项目 | 数值 |
+|---|---:|
+| 已记录天数 | {{ overview.runs|fmt_int }} |
+| 涉及商品 | {{ overview.products|fmt_int }} |
+| 累计异常 | {{ overview.anomalies|fmt_int }} |
+| 已记录建议 | {{ overview.recommendations|fmt_int }} |
+| AI 成功天数 | {{ overview.ai_runs|fmt_int }} |
+| 重复异常判定门槛 | 出现 ≥ {{ recurring_min_count }} 天 |
+
+---
+
+## 2. 重复异常商品
+
+{% if recurring %}
+| 商品 | 店铺 | 异常天数 | 异常类型 | 最近日期 | 最高分 |
+|---|---|---|---:|---|---:|
+{% for item in recurring %}
+| {{ item.product_name|md }}<br>`{{ item.product_id }}` | {{ item.shop|md }} | {{ item.days|fmt_int }} | {{ item.types|md }} | {{ item.last_date }} | {{ item.max_score|fmt_num(1) }} |
+{% endfor %}
+{% else %}
+历史中还没有达到重复异常门槛的商品。
+{% endif %}
+
+---
+
+## 3. 商品历史对比
+
+{% if comparisons %}
+{% for group in comparisons %}
+### 3.{{ loop.index }} {{ group.product.product_name }}（{{ group.product.product_id }}）
+
+| 日期 | 浏览量 | 访客数 | 订单量 | 销售额 | 转化率 | 浏览量变化率 | 异常 | 严重度 |
+|---|---:|---:|---:|---:|---:|---:|---|---|
+{% for row in group.history %}
+| {{ row.stat_date }} | {{ row.pv|fmt_int }} | {{ row.uv|fmt_int }} | {{ row.orders|fmt_int }} | {{ row.sales_amount|fmt_num }} | {{ row.cr|fmt_pct }} | {{ row.pv_change_rate|fmt_change }} | {{ (row.anomaly_types or '—')|md }} | {{ row.severity_level or '—' }} |
+{% endfor %}
+
+{% endfor %}
+{% else %}
+暂无重复异常商品，无法生成历史对比。
+{% endif %}
+
+---
+
+## 4. 建议追踪
+
+> 这里只展示“建议之后观察到的指标变化”，不代表建议导致了变化；没有对照组，不能做因果判断。
+
+{% if advice.details %}
+| 日期 | 商品 | 来源 | 建议 | 后续日期 | 订单变化 | 转化率变化 | 观察结果 |
+|---|---|---|---|---|---:|---:|---|
+{% for item in advice.details %}
+| {{ item.stat_date }} | {{ (item.product_name or item.product_id)|md }} | {{ item.source|source_label }} | {{ item.action|truncate_text(48)|md }} | {{ item.followup_date or '—' }} | {{ item.order_change|fmt_change }} | {{ item.cr_change|fmt_change }} | {{ item.classification }} |
+{% endfor %}
+{% else %}
+还没有可追踪的建议。
+{% endif %}
+
+### 观察结果汇总
+
+{% if advice.summary %}
+| 观察结果 | 数量 |
+|---|---:|
+{% for label, count in advice.summary.items() %}
+| {{ label }} | {{ count|fmt_int }} |
+{% endfor %}
+{% else %}
+暂无汇总数据。
+{% endif %}
+
+---
+
+## 5. 数据限制
+
+- 历史记录每个统计日期只保留一份最新快照，同日重跑会覆盖。
+- “改善/恶化/持平”只是后续指标变化的观察，不是因果结论，也没有对照组。
+- 建议后没有后续数据时，显示“无后续数据”。
+- AI 建议可能在限流/超时后缺失；缺失时记录规则型核查方向。
+- 若历史数据来自演示/模拟数据，历史结论同样只用于工程验证，不能当作真实业务结论。
+- 历史库不保存客户个人信息，只保存商品级指标与建议文本。
+
+---
+
+## 6. 说明
+
+- 本报告由 SQLite 历史库生成，不调用大模型。
+- 当前建议观察窗口为后续 {{ lookahead_days }} 个有数据交易日。
+- 重复异常门槛为出现 ≥ {{ recurring_min_count }} 天。

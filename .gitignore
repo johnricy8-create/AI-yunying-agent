@@ -20,6 +20,7 @@ reports/reference_test/
 reports/threshold_sensitivity/
 reports/catalog/
 reports/shopify_demo/
+reports/history_review/
 data/rag/
 data/cache/
 
@@ -28,6 +29,7 @@ data/raw/*
 !data/raw/.gitkeep
 data/reference/raw/
 data/derived/
+data/history/
 
 # Keep the sample mock dataset, ignore other generated CSV files in mock/
 data/mock/*.csv

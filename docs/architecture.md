@@ -1,4 +1,4 @@
-# 架构说明（阶段一至三）
+# 架构说明（阶段一至五）
 
 ## 1. 目标与边界
 
@@ -41,6 +41,7 @@ AI 调用失败、限流、超时或 JSON 无效时，自动回退到规则型�
 | 目录分支 | `ecom_ops/catalog/` | Shopify 目录快照、价格/库存事件、目录报告；与销售日报独立 |
 | 演示分支 | `ecom_ops/demo/` | 用目录 + 明确标注的模拟销售字段跑通完整日报 |
 | 调度层 | `scheduler.py`、`ecom_ops/scheduler/` | 每日 09:00、文件锁、有限重试、Windows 常驻 |
+| 历史层 | `ecom_ops/history/`、`data/history/` | SQLite 历史、重复异常、商品对比、建议后续观察 |
 | 大模型层 | `ecom_ops/llm/` | GLM 客户端、提示词、JSON 校验、重试、缓存、降级 |
 | 编排层 | `ecom_ops/graph/` | StateGraph、状态契约、节点实现 |
 | 报告层 | `ecom_ops/report/` | Jinja2 模板、Markdown 渲染、原子写入 |
@@ -263,7 +264,19 @@ Shopify catalog 快照 + price_changes 事件
 
 ---
 
-## 10. 扩展点
+## 10. 历史与建议追踪
+
+- 入口：`tools/history_report.py`
+- 历史库：SQLite `data/history/ops_history.db`
+- 写入：`run.py` / `scheduler.py` 成功生成日报后自动写入；同日覆盖。
+- 表：`runs`、`product_metrics`、`recommendations`。
+- 查询：重复异常商品、商品最近 N 天指标、建议之后的订单/转化率变化。
+- 效果分类：改善 / 恶化 / 持平 / 无后续数据；只是观察，不是因果。
+- 历史库不保存客户个人信息。
+
+---
+
+## 11. 扩展点
 
 | 阶段 | 扩展方式 |
 |---|---|

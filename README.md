@@ -2,7 +2,7 @@
 
 面向销售 Excel 模板、办公资料、电子资料等数字商品的每日运营分析 Agent。
 
-当前完成 **阶段一 + 阶段二**，并已具备**阶段三数据接入基础设施**：
+当前完成 **阶段一至阶段五**（数据接入、AI/RAG、目录监控、定时执行、历史复盘）：
 
 1. 读取模拟/真实销售数据（CSV、Excel）→ 校验 → 计算指标 → 自适应基线 → 识别异常 → 严重度排序 → 生成 Markdown 日报 → 记录日志。
 2. 对 Top-N 异常，通过 **RAG（知识库 + 历史日报）** 检索相关经验，调用 **智谱 GLM-4.7-Flash** 生成结构化原因分析与建议；模型限流、超时或输出无效时自动回退到规则型报告。
@@ -10,6 +10,7 @@
 4. 另有一条独立的**商品目录/价格监控**分支：使用 Shopify 目录快照与价格/库存事件，生成价格变动、缺货、补货、新上架报告；不与每日销售日报混用。
 5. 用你提供的商品目录生成一份**明确标注模拟字段的销售演示数据**，可以立刻跑通完整日报；模拟销售字段不能用于真实业务校准。
 6. 阶段四定时执行：每天北京时间 09:00 自动跑，文件锁防并发，失败有限重试；Windows 用任务计划程序长期运行。
+7. 阶段五历史复盘：SQLite 保存每日指标/异常/建议，支持重复异常、商品历史对比、建议后续变化观察。
 
 > 阶段二只做分析与建议，**不自动改价、不自动发布、不操作真实电商账户**。所有涉及业务动作的建议都标记为需人工确认。
 
@@ -101,6 +102,35 @@ python run.py
 
 Windows 长期运行：用“任务计划程序”在登录/开机时启动 `scheduler.py`，本进程常驻并按 09:00 触发。电脑关机、休眠或进程退出时不会执行；需要配置“唤醒计算机”或“错过任务后尽快启动”。
 
+### 历史复盘
+
+每次 `run.py` / `scheduler.py` 成功生成日报后，会自动写入 SQLite 历史库：
+
+```text
+data/history/ops_history.db
+```
+
+生成历史复盘报告：
+
+```powershell
+.venv\Scripts\python.exe tools\history_report.py
+```
+
+输出：
+
+```text
+reports/history_review/ops_history_report.md
+```
+
+内容包括：
+
+- 重复异常商品；
+- 商品最近 N 天指标对比；
+- 建议之后的指标变化（改善/恶化/持平/无后续数据）；
+- 建议效果汇总。
+
+> “改善/恶化”只是后续观察，不是因果结论。
+
 ### 常用参数
 
 ```powershell
@@ -166,6 +196,8 @@ Windows 长期运行：用“任务计划程序”在登录/开机时启动 `sch
 | 日报 | `reports/YYYY-MM-DD_daily_report.md` |
 | 目录/价格监控报告 | `reports/catalog/YYYY-MM-DD_catalog_report.md` |
 | 演示日报 | `reports/shopify_demo/YYYY-MM-DD_daily_report.md`（模拟销售字段） |
+| 历史复盘 | `reports/history_review/ops_history_report.md` |
+| 历史库 | `data/history/ops_history.db`（gitignore） |
 | 历史日报语料 | `reports/history/`（已 gitignore，可重建） |
 | RAG 索引 | `data/rag/`（已 gitignore，可重建） |
 | AI 缓存 | `data/cache/ai/`（已 gitignore） |
@@ -205,6 +237,7 @@ Windows 长期运行：用“任务计划程序”在登录/开机时启动 `sch
 │  ├─ catalog/                  # 商品目录/价格事件监控（独立分支）
 │  ├─ demo/                     # 用目录生成模拟销售演示数据
 │  ├─ scheduler/                # 定时执行、锁、重试
+│  ├─ history/                  # SQLite 历史、商品对比、建议追踪
 │  ├─ report/                   # Jinja2 报告渲染与模板
 │  └─ utils/                    # 日期、时区、文件工具
 ├─ knowledge/                   # 运营知识库（示例 SOP，需业务方审核）
@@ -215,6 +248,7 @@ Windows 长期运行：用“任务计划程序”在登录/开机时启动 `sch
 │  ├─ catalog_report.py         # 商品目录/价格监控报告
 │  ├─ build_shopify_sales_demo.py # 目录 + 模拟销售演示数据
 │  ├─ run_demo.py               # 一键演示（目录报告 + 模拟销售日报）
+│  ├─ history_report.py         # 历史复盘报告
 │  ├─ threshold_sensitivity.py  # 阈值敏感度工程测试
 │  ├─ build_reference_sample.py # 构建 UCI 参考样本
 │  ├─ build_history.py          # 生成历史日报语料
@@ -225,6 +259,7 @@ Windows 长期运行：用“任务计划程序”在登录/开机时启动 `sch
 │  ├─ templates/                # 数据模板（CSV/Excel）
 │  ├─ reference/                # UCI 公开参考样本（派生字段说明见 README）
 │  ├─ derived/                  # 目录 + 模拟销售演示数据（gitignore）
+│  ├─ history/                  # SQLite 历史库（gitignore）
 │  ├─ rag/                      # 向量索引（gitignore）
 │  └─ cache/                    # AI 缓存（gitignore）
 ├─ reports/                     # 日报输出
@@ -241,7 +276,7 @@ Windows 长期运行：用“任务计划程序”在登录/开机时启动 `sch
 .venv\Scripts\python.exe -m pytest
 ```
 
-当前共 **70 个测试**，覆盖：
+当前共 **72 个测试**，覆盖：
 
 - 指标计算与昨日对比、UV/PV 分母、缺失昨日、昨日为 0；
 - 3/5/7 自适应基线、历史不足、新品首日/第二天、均值为 0；
@@ -253,6 +288,7 @@ Windows 长期运行：用“任务计划程序”在登录/开机时启动 `sch
 - 目录监控：零价格、缺货、价格变动、事件统计、报告渲染、缺字段报错；
 - 演示数据：确定性生成、字段范围、订单不超过 PV/UV、退款不超过销售额、缺字段报错；
 - 定时任务：时间解析、文件锁、单次执行、报告生成、调度器注册；
+- 历史复盘：SQLite 写入/覆盖、重复异常、商品历史、建议效果分类、报告渲染；
 - LangGraph 端到端、报告 12 个章节、AI 报告渲染、同日覆盖、日志 run_id、缺失文件快速失败。
 
 ---
@@ -283,6 +319,7 @@ Windows 长期运行：用“任务计划程序”在登录/开机时启动 `sch
 - `data/derived/shopify_catalog_sales_demo.csv` 的订单/流量/销售额/退款/成本/库存是模拟值，只用于演示，不能用于真实阈值校准。
 - 不假设已有真实电商平台 API；阶段三只处理本地 CSV/Excel。
 - 定时任务依赖进程常驻；电脑关机、休眠或程序退出时不会执行，需要 Windows 任务计划程序与唤醒设置配合。
+- 历史复盘的“改善/恶化”只是后续指标观察，不是因果结论；没有对照组，也没有真实人工执行反馈。
 
 ---
 
@@ -293,7 +330,7 @@ Windows 长期运行：用“任务计划程序”在登录/开机时启动 `sch
 | 阶段二 | 已完成：GLM-4.7-Flash、RAG、结构化建议、限流重试、失败降级、缓存 |
 | 阶段三 | CSV/Excel、模板、数据画像、参考样本、阈值敏感度、商品目录监控、目录+模拟销售演示已就绪；等待订单/流量真实样例校准销售日报阈值 |
 | 阶段四 | 已完成：APScheduler 每日 09:00、文件锁防并发、有限重试、手动/临时时间测试、Windows 任务计划程序说明 |
-| 阶段五 | 历史记录、日期对比、建议有效性、通知与看板；可选其他嵌入模型 |
+| 阶段五 | 已完成历史记录、商品对比、建议后续观察；通知、看板、真实人工反馈仍可扩展 |
 
 RAG 当前使用智谱 `embedding-3`（1024 维），与 GLM 共用一把 Key；BGE-M3 不再作为默认方案。
 

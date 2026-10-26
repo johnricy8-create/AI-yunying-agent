@@ -22,6 +22,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from ecom_ops.config import Settings
 from ecom_ops.context import RunContext
 from ecom_ops.graph.workflow import run_workflow
+from ecom_ops.history.store import record_result
 from ecom_ops.logging_setup import get_run_logger
 from ecom_ops.utils.dates import now
 from ecom_ops.utils.files import ensure_dir
@@ -117,6 +118,19 @@ def run_job(
                     data_note=data_note,
                     sheet_name=sheet_name,
                 )
+                if result.get("status") == "completed":
+                    try:
+                        record_result(
+                            job_settings,
+                            result,
+                            source_file=str(source),
+                            data_note=data_note,
+                        )
+                    except Exception as history_exc:
+                        logger.warning(
+                            "[scheduler] 历史记录写入失败（不影响报告）: %s",
+                            history_exc,
+                        )
                 logger.info(
                     "[scheduler] 执行完成：状态=%s，报告=%s",
                     result.get("status"),

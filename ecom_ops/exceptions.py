@@ -47,3 +47,7 @@ class RAGError(EcomOpsError):
 
 class CatalogError(EcomOpsError):
     """商品目录/价格事件数据读取或分析失败。"""
+
+
+class HistoryError(EcomOpsError):
+    """历史记录写入或查询失败。"""

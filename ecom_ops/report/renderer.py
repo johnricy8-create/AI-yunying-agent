@@ -12,6 +12,7 @@ from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from ecom_ops.analysis.rule_advice import directions_for_code
 from ecom_ops.context import RunContext
 from ecom_ops.exceptions import ReportError
 from ecom_ops.graph.state import AgentState
@@ -20,37 +21,6 @@ from ecom_ops.utils.files import ensure_dir, write_text_atomic
 
 
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
-
-_RULE_DIRECTIONS: dict[str, list[str]] = {
-    "zero_conversion": [
-        "核对商品详情页、价格与库存是否正常可见",
-        "检查下单与支付链路是否存在故障",
-        "核对流量来源是否精准，排除无效流量或统计异常",
-    ],
-    "pv_drop": [
-        "核对平台搜索排名、活动结束时间与商品是否下架",
-        "检查竞品动作、站外流量与投放变化",
-        "确认数据采集是否漏数或日期错位",
-    ],
-    "order_drop": [
-        "检查价格、优惠、评价与售后变化",
-        "核对库存、支付故障与下单链路",
-        "复盘流量结构是否发生明显变化",
-    ],
-    "high_pv_low_cr": [
-        "优化详情页首屏卖点与信息完整度",
-        "检查价格竞争力、评价与信任信息",
-        "核对流量关键词与商品匹配度",
-    ],
-    "stock_out": [
-        "确认补货计划与到货时间",
-        "评估是否暂停投放或临时下架",
-    ],
-    "overstock": [
-        "评估促销、组合销售或清仓方案",
-        "控制后续采购与投放节奏",
-    ],
-}
 
 _STATUS_LABELS = {
     "started": "开始",
@@ -157,7 +127,7 @@ def _suggestion_groups(anomalies: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 groups[code] = {
                     "label": hit.get("label", code),
                     "products": [],
-                    "directions": _RULE_DIRECTIONS.get(code, ["结合业务实际进一步核查"]),
+                    "directions": directions_for_code(code) or ["结合业务实际进一步核查"],
                 }
             if anomaly.get("product_name") not in groups[code]["products"]:
                 groups[code]["products"].append(anomaly.get("product_name", ""))

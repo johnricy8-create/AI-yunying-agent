@@ -101,6 +101,14 @@ class LoggingConfig:
 
 
 @dataclass(frozen=True)
+class HistoryConfig:
+    enabled: bool
+    db_path: Path
+    lookahead_days: int
+    recurring_min_count: int
+
+
+@dataclass(frozen=True)
 class SchedulerConfig:
     hour: int
     minute: int
@@ -199,6 +207,7 @@ class Settings:
     anomaly: AnomalyConfig
     report: ReportConfig
     logging: LoggingConfig
+    history: HistoryConfig
     scheduler: SchedulerConfig
     llm: LLMConfig
     rag: RAGConfig
@@ -358,6 +367,7 @@ def load_settings(
     anomaly_raw = _section(raw, "anomaly")
     report_raw = _section(raw, "report")
     logging_raw = _section(raw, "logging")
+    history_raw = _section(raw, "history")
     scheduler_raw = _section(raw, "scheduler")
     llm_raw = _section(raw, "llm")
     rag_raw = _section(raw, "rag")
@@ -513,6 +523,25 @@ def load_settings(
     )
     if retention_days < 1:
         raise ConfigError("logging.retention_days 必须 >= 1")
+
+    history_enabled = _as_bool(
+        _require(history_raw, "enabled", "history"), "history.enabled"
+    )
+    history_db_path = resolve_path(
+        _as_str(_require(history_raw, "db_path", "history"), "history.db_path"),
+        project_root,
+    )
+    history_lookahead = _as_int(
+        _require(history_raw, "lookahead_days", "history"), "history.lookahead_days"
+    )
+    history_min_count = _as_int(
+        _require(history_raw, "recurring_min_count", "history"),
+        "history.recurring_min_count",
+    )
+    if history_lookahead < 1:
+        raise ConfigError("history.lookahead_days 必须 >= 1")
+    if history_min_count < 1:
+        raise ConfigError("history.recurring_min_count 必须 >= 1")
 
     scheduler_hour = _as_int(_require(scheduler_raw, "hour", "scheduler"), "scheduler.hour")
     scheduler_minute = _as_int(
@@ -696,6 +725,12 @@ def load_settings(
             level=log_level,
             filename=log_filename,
             retention_days=retention_days,
+        ),
+        history=HistoryConfig(
+            enabled=history_enabled,
+            db_path=history_db_path,
+            lookahead_days=history_lookahead,
+            recurring_min_count=history_min_count,
         ),
         scheduler=SchedulerConfig(
             hour=scheduler_hour,

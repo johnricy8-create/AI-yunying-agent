@@ -25,6 +25,7 @@ from ecom_ops.config import load_settings
 from ecom_ops.context import RunContext
 from ecom_ops.exceptions import EcomOpsError
 from ecom_ops.graph.workflow import run_workflow
+from ecom_ops.history.store import record_result
 from ecom_ops.logging_setup import get_run_logger, setup_logging
 from ecom_ops.utils.dates import APP_TZ
 from ecom_ops.utils.files import resolve_path
@@ -126,6 +127,17 @@ def main(argv: list[str] | None = None) -> int:
             sheet_name=args.sheet,
             data_note=args.data_note,
         )
+
+        if result.get("status") == "completed":
+            try:
+                record_result(
+                    settings,
+                    result,
+                    source_file=str(settings.app.data_file),
+                    data_note=args.data_note,
+                )
+            except Exception as exc:
+                logger.warning("历史记录写入失败（不影响本次报告）: %s", exc)
 
         summary = result.get("global_summary", {}) or {}
         quality = (result.get("data_quality", {}) or {}).get("summary", {}) or {}

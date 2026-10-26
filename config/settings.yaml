@@ -94,6 +94,14 @@ rag:
   min_score: 0.15
   embedding_batch_size: 32
 
+history:
+  enabled: true
+  db_path: data/history/ops_history.db
+  # 建议后观察未来多少个有数据的交易日
+  lookahead_days: 3
+  # 同一商品至少出现几次异常才算“重复异常”
+  recurring_min_count: 2
+
 scheduler:
   # 每天北京时间 09:00
   hour: 9
