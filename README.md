@@ -106,9 +106,12 @@ python run.py
 | 运营知识库 | `knowledge/`（需业务方审核） |
 | 模拟数据 | `data/mock/sales_mock.csv` |
 | 数据模板 | `data/templates/sales_data_template.csv` / `.xlsx` |
+| 公开参考样本 | `data/reference/online_retail_reference.csv`（300 商品 × 180 天，派生字段） |
 | 真实数据（阶段三） | `data/raw/`（已 gitignore） |
 
 报告默认展示异常 Top 10 的详情，其余异常只统计数量与类型。同日重复运行会覆盖同名报告，run_id 记录在报告和日志中。
+
+> 公开参考样本来自 UCI Online Retail，仅用于规模、数据质量和阈值敏感度测试。PV/UV、成本、库存、店铺/平台/类目为派生字段，不代表真实业务；详见 `data/reference/README.md`。
 
 ---
 
@@ -143,6 +146,7 @@ python run.py
 │  ├─ mock/                     # 模拟数据
 │  ├─ raw/                      # 真实数据（gitignore）
 │  ├─ templates/                # 数据模板（CSV/Excel）
+│  ├─ reference/                # UCI 公开参考样本（派生字段说明见 README）
 │  ├─ rag/                      # 向量索引（gitignore）
 │  └─ cache/                    # AI 缓存（gitignore）
 ├─ reports/                     # 日报输出
@@ -164,7 +168,7 @@ python run.py
 - 指标计算与昨日对比、UV/PV 分母、缺失昨日、昨日为 0；
 - 3/5/7 自适应基线、历史不足、新品首日/第二天、均值为 0；
 - 四类核心异常的触发边界、最小样本、低置信、库存规则关闭；
-- 数据校验：缺字段、负值、订单大于浏览、退款大于销售、重复行、未来日期、警告；
+- 数据校验：缺字段、负值、订单大于浏览、重复行、未来日期、警告；退款大于净销售额不被误判；
 - RAG：Markdown 切分、知识库/历史日报过滤、向量检索、日期过滤、索引持久化；
 - AI：JSON 解析容错、未知来源过滤、限流重试、缓存命中、失败降级、方向一致性检查；
 - Excel：中文表头映射、工作表选择、旧版 .xls 拒绝、模板生成、Excel 端到端；

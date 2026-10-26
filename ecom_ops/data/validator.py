@@ -303,17 +303,8 @@ def validate_sales_data(
                         "warning",
                     )
                 )
-            if refund is not None and sales is not None and refund > sales:
-                errors.append(
-                    _issue(
-                        row_number,
-                        product_id,
-                        stat_date_raw,
-                        "refund_amount",
-                        "refund_gt_sales",
-                        f"退款金额 {refund} 大于销售额 {sales}",
-                    )
-                )
+            # 销售额是净额，退款金额可能大于净销售额（例如退款超过毛利），
+            # 因此不能用 refund > sales 判定数据错误。
             if orders is not None and pv is not None and orders > pv:
                 errors.append(
                     _issue(

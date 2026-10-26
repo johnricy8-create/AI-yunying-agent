@@ -70,6 +70,22 @@ uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 
 > 画像输出可能包含真实业务数据，不要直接公开粘贴。
 
+### 2.3 公开参考样本
+
+仓库附带 UCI Online Retail 派生参考样本：
+
+```powershell
+.venv\Scripts\python.exe tools\profile_data.py --data data\reference\online_retail_reference.csv
+.venv\Scripts\python.exe run.py --data data\reference\online_retail_reference.csv --no-ai --report-dir reports\reference_test
+```
+
+- 300 商品 × 180 天，54,000 行；
+- PV/UV、成本、库存、店铺/平台/类目为派生字段，不是真实业务数据；
+- 用于验证规模、数据质量、Excel/CSV 接入与阈值敏感度；
+- 详细说明见 `data/reference/README.md`。
+
+参考样本画像显示：54,000 行全部有效、0 隔离行、521 行警告；统计日 2011-11-27 触发 119 个异常，说明 v0.1 在该分布下偏敏感，真实数据校准是必要的。
+
 ---
 
 ## 3. 运行

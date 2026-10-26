@@ -67,10 +67,11 @@ def test_orders_greater_than_pv_is_invalid(fields):
     assert result.summary["error_counts"].get("orders_gt_pv") == 1
 
 
-def test_refund_greater_than_sales_is_invalid(fields):
+def test_refund_greater_than_net_sales_is_allowed(fields):
+    # 销售额是净额，退款金额可能大于净销售额，不应误判为错误。
     result = _validate(fields, [_row(fields, 2, sales_amount="10", refund_amount="20")])
-    assert result.summary["valid_rows"] == 0
-    assert result.summary["error_counts"].get("refund_gt_sales") == 1
+    assert result.summary["valid_rows"] == 1
+    assert "refund_gt_sales" not in result.summary["error_counts"]
 
 
 def test_duplicate_keeps_last_row(fields):

@@ -100,6 +100,7 @@ END
 - `loader`：支持 CSV 与 `.xlsx`；CSV 按 UTF-8-SIG → UTF-8 → GBK 尝试；Excel 用 openpyxl，默认第一个工作表，可用 `--sheet` 指定；全部按字符串读取；表头归一化。
 - `validator`：逐行类型转换与业务校验；错误行隔离；可选字段缺失给默认值与警告；重复键保留最后一条。
 - 模板：`tools/create_data_template.py` 生成中文表头 CSV/Excel；`tools/profile_data.py` 在正式分析前做数据画像。
+- 参考样本：`tools/build_reference_sample.py` 从 UCI Online Retail 生成 300 商品 × 180 天的派生样本，用于规模与数据质量测试；PV/UV/成本/库存为派生字段。
 - 没有可用行时任务失败。
 
 ### 5.2 指标

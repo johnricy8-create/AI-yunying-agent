@@ -1,0 +1,30 @@
+{
+  "source": "UCI Machine Learning Repository - Online Retail",
+  "source_url": "https://archive.ics.uci.edu/dataset/352/online+retail",
+  "window_start": "2011-06-01",
+  "window_end": "2011-11-27",
+  "products": 300,
+  "days": 180,
+  "rows": 54000,
+  "seed": 42,
+  "real_fields": [
+    "stat_date",
+    "product_id",
+    "product_name",
+    "product_desc",
+    "orders",
+    "sales_amount",
+    "refund_amount"
+  ],
+  "derived_fields": [
+    "price (weighted avg)",
+    "cost",
+    "stock",
+    "pv",
+    "uv",
+    "shop",
+    "platform",
+    "category"
+  ],
+  "note": "PV/UV、成本、库存、店铺/平台/类目为参考样本派生字段，不是源数据真实值。"
+}

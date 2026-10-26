@@ -15,12 +15,14 @@ logs/*.log*
 reports/*.md
 reports/history/
 reports/archive/
+reports/reference_test/
 data/rag/
 data/cache/
 
 # Real business data must never enter the repository
 data/raw/*
 !data/raw/.gitkeep
+data/reference/raw/
 
 # Keep the sample mock dataset, ignore other generated CSV files in mock/
 data/mock/*.csv
