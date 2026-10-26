@@ -38,6 +38,7 @@ AI 调用失败、限流、超时或 JSON 无效时，自动回退到规则型�
 | 数据层 | `ecom_ops/data/` | CSV/Excel 读取、表头归一化、行级校验、模拟数据生成、数据模板 |
 | 分析层 | `ecom_ops/analysis/` | 指标、基线、异常规则、严重度评分 |
 | RAG 层 | `ecom_ops/rag/`、`knowledge/` | 语料切分、向量索引、余弦检索 |
+| 目录分支 | `ecom_ops/catalog/` | Shopify 目录快照、价格/库存事件、目录报告；与销售日报独立 |
 | 大模型层 | `ecom_ops/llm/` | GLM 客户端、提示词、JSON 校验、重试、缓存、降级 |
 | 编排层 | `ecom_ops/graph/` | StateGraph、状态契约、节点实现 |
 | 报告层 | `ecom_ops/report/` | Jinja2 模板、Markdown 渲染、原子写入 |
@@ -223,7 +224,26 @@ Top-N 异常
 
 ---
 
-## 8. 扩展点
+## 8. 商品目录/价格监控分支
+
+独立于每日销售日报：
+
+```text
+Shopify catalog 快照 + price_changes 事件
+  → 目录质量/价格带/类目/店铺统计
+  → 降价/涨价/缺货/补货/新上架
+  → Markdown 目录报告
+```
+
+- 入口：`tools/catalog_report.py`
+- 模块：`ecom_ops/catalog/`
+- 不做订单、销售额、PV/UV、转化率；不调用大模型。
+- 输出：`reports/catalog/YYYY-MM-DD_catalog_report.md`
+- 适用于单日目录快照；目录与事件样本可能无交集，不做强行关联。
+
+---
+
+## 9. 扩展点
 
 | 阶段 | 扩展方式 |
 |---|---|

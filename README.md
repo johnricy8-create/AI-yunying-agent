@@ -7,6 +7,7 @@
 1. 读取模拟/真实销售数据（CSV、Excel）→ 校验 → 计算指标 → 自适应基线 → 识别异常 → 严重度排序 → 生成 Markdown 日报 → 记录日志。
 2. 对 Top-N 异常，通过 **RAG（知识库 + 历史日报）** 检索相关经验，调用 **智谱 GLM-4.7-Flash** 生成结构化原因分析与建议；模型限流、超时或输出无效时自动回退到规则型报告。
 3. 提供 CSV/Excel 数据模板、Excel 工作表选择、数据画像工具，用于真实数据接入前的检查和阈值评估。
+4. 另有一条独立的**商品目录/价格监控**分支：使用 Shopify 目录快照与价格/库存事件，生成价格变动、缺货、补货、新上架报告；不与每日销售日报混用。
 
 > 阶段二只做分析与建议，**不自动改价、不自动发布、不操作真实电商账户**。所有涉及业务动作的建议都标记为需人工确认。
 
@@ -95,6 +96,16 @@ python run.py
 
 不传 `--date` 时，默认统计日期为运行日的前一天（北京时间 D-1）；若该日期不在数据中，会回退到最新可用日期并在日志中告警。
 
+### 商品目录/价格监控（独立分支）
+
+```powershell
+.venv\Scripts\python.exe tools\catalog_report.py `
+  --catalog "D:\olist电商数据\shopify-products-dataset-sample\data\catalog_sample_500.csv" `
+  --changes "D:\olist电商数据\shopify-products-dataset-sample\data\price_changes_sample.csv"
+```
+
+生成 `reports/catalog/YYYY-MM-DD_catalog_report.md`。该分支只分析目录、价格、可用性，不计算订单、销售额、PV/UV，也不调用大模型。
+
 ---
 
 ## 3. 输出
@@ -102,6 +113,7 @@ python run.py
 | 输出 | 路径 |
 |---|---|
 | 日报 | `reports/YYYY-MM-DD_daily_report.md` |
+| 目录/价格监控报告 | `reports/catalog/YYYY-MM-DD_catalog_report.md` |
 | 历史日报语料 | `reports/history/`（已 gitignore，可重建） |
 | RAG 索引 | `data/rag/`（已 gitignore，可重建） |
 | AI 缓存 | `data/cache/ai/`（已 gitignore） |
@@ -136,6 +148,7 @@ python run.py
 │  ├─ graph/                    # LangGraph 状态、节点、工作流
 │  ├─ llm/                      # GLM 客户端、提示词、结构化输出、AI 服务
 │  ├─ rag/                      # 语料切分、向量索引、检索器
+│  ├─ catalog/                  # 商品目录/价格事件监控（独立分支）
 │  ├─ report/                   # Jinja2 报告渲染与模板
 │  └─ utils/                    # 日期、时区、文件工具
 ├─ knowledge/                   # 运营知识库（示例 SOP，需业务方审核）
@@ -143,6 +156,7 @@ python run.py
 │  ├─ generate_mock_data.py     # 模拟数据生成器
 │  ├─ create_data_template.py   # 生成 CSV/Excel 数据模板
 │  ├─ profile_data.py           # 真实数据画像与质量检查
+│  ├─ catalog_report.py         # 商品目录/价格监控报告
 │  ├─ threshold_sensitivity.py  # 阈值敏感度工程测试
 │  ├─ build_reference_sample.py # 构建 UCI 参考样本
 │  ├─ build_history.py          # 生成历史日报语料
@@ -168,7 +182,7 @@ python run.py
 .venv\Scripts\python.exe -m pytest
 ```
 
-当前共 **60 个测试**，覆盖：
+当前共 **62 个测试**，覆盖：
 
 - 指标计算与昨日对比、UV/PV 分母、缺失昨日、昨日为 0；
 - 3/5/7 自适应基线、历史不足、新品首日/第二天、均值为 0；
@@ -177,6 +191,7 @@ python run.py
 - RAG：Markdown 切分、知识库/历史日报过滤、向量检索、日期过滤、索引持久化；
 - AI：JSON 解析容错、未知来源过滤、限流重试、缓存命中、失败降级、方向一致性检查；
 - Excel：中文表头映射、工作表选择、旧版 .xls 拒绝、模板生成、Excel 端到端；
+- 目录监控：零价格、缺货、价格变动、事件统计、报告渲染、缺字段报错；
 - LangGraph 端到端、报告 12 个章节、AI 报告渲染、同日覆盖、日志 run_id、缺失文件快速失败。
 
 ---
@@ -203,6 +218,7 @@ python run.py
 - GLM-4.7-Flash 免费模型可能返回 `1305 平台过载`；已实现退避重试与规则降级，但高峰期可能拿不到 AI 分析。
 - 当前知识库为示例 SOP，不是真实平台政策；RAG 检索结果可能不完整。
 - Excel 支持 `.xlsx`；旧版 `.xls` 需另存为 `.xlsx`。默认读取第一个工作表，可用 `--sheet` 指定。
+- 商品目录分支只有单日快照/价格事件，不能计算订单、销售额、PV/UV；它不能替代销售日报。
 - 不假设已有真实电商平台 API；阶段三只处理本地 CSV/Excel。
 - 不做定时调度；阶段四处理。
 
@@ -213,7 +229,7 @@ python run.py
 | 阶段 | 内容 |
 |---|---|
 | 阶段二 | 已完成：GLM-4.7-Flash、RAG、结构化建议、限流重试、失败降级、缓存 |
-| 阶段三 | 基础设施已就绪：CSV/Excel、模板、数据画像、字段映射；等待脱敏真实样例后校准阈值 |
+| 阶段三 | CSV/Excel、模板、数据画像、参考样本、阈值敏感度、商品目录监控已就绪；等待订单/流量真实样例校准销售日报阈值 |
 | 阶段四 | APScheduler 每日 09:00、并发防护、Windows 任务计划程序 |
 | 阶段五 | 历史记录、日期对比、建议有效性、通知与看板；可选其他嵌入模型 |
 

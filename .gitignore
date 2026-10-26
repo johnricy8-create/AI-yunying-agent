@@ -17,6 +17,7 @@ reports/history/
 reports/archive/
 reports/reference_test/
 reports/threshold_sensitivity/
+reports/catalog/
 data/rag/
 data/cache/
 

@@ -84,6 +84,9 @@
 
 ## 5. 下一步可选路径
 
+> 当前选择：**路径 B 已实现**。目录/价格监控分支位于 `ecom_ops/catalog/`，入口为 `tools/catalog_report.py`，输出 `reports/catalog/`。每日销售日报仍需路径 A 的订单/流量数据。
+
+
 ### 路径 A：补充 Shopify 订单与流量数据（推荐，继续当前 Agent）
 
 需要导出：

@@ -101,6 +101,26 @@ uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 
 参考样本结果：v0.1 日均异常 98.8 个、异常率 32.9%、高危日均 43.03；工程严格档约 36 个/天、12.0%。这只能说明阈值方向，**不修改 v0.1，也不作为业务定案**。
 
+### 2.5 商品目录/价格监控（独立分支）
+
+你提供的 Shopify 目录样本可以生成独立的目录报告：
+
+```powershell
+.venv\Scripts\python.exe tools\catalog_report.py `
+  --catalog "D:\olist电商数据\shopify-products-dataset-sample\data\catalog_sample_500.csv" `
+  --changes "D:\olist电商数据\shopify-products-dataset-sample\data\price_changes_sample.csv"
+```
+
+输出：`reports/catalog/2026-08-01_catalog_report.md`
+
+内容包括：目录规模、价格带、类目/店铺分布、零价格、缺货、降价/涨价、新上架、待人工确认、数据限制。
+
+注意：
+
+- 该分支不计算订单、销售额、PV/UV，也不调用大模型；
+- 目录样本与价格事件样本可能没有变体交集，不能直接关联；
+- 数据许可为 CC BY-NC 4.0，商用前需确认商业许可。
+
 ---
 
 ## 3. 运行
@@ -174,7 +194,7 @@ RAG 检索块   : 12 / 索引 141
 预期：
 
 ```text
-60 passed
+62 passed
 ```
 
 测试覆盖指标、基线、异常边界、数据校验、RAG 切分/检索、AI JSON 解析/重试/缓存/降级、端到端工作流、报告章节、同日覆盖、日志 run_id、缺失文件快速失败。
@@ -306,6 +326,7 @@ AI 与 RAG 参数在 `config/settings.yaml` 的 `llm` / `rag` 段：
 - [ ] CSV 与 `.xlsx` 均可读取，Excel 可用 `--sheet` 指定工作表
 - [ ] `tools/create_data_template.py` 能生成 CSV/Excel 模板
 - [ ] `tools/profile_data.py` 能输出表头、空值、质量、日期覆盖、数值分布
+- [ ] `tools/catalog_report.py` 能生成目录/价格监控报告
 - [ ] RAG 索引可构建，检索结果带来源与相似度
 - [ ] AI 成功时报告包含摘要、事实、原因、建议、引用
 - [ ] AI 失败时报告仍生成，并明确标注规则型降级

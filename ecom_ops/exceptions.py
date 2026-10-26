@@ -43,3 +43,7 @@ class AISchemaError(EcomOpsError):
 
 class RAGError(EcomOpsError):
     """RAG 索引构建或检索失败。"""
+
+
+class CatalogError(EcomOpsError):
+    """商品目录/价格事件数据读取或分析失败。"""

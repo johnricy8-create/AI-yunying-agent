@@ -1,0 +1,158 @@
+# Shopify 商品目录与价格监控报告
+
+> 报告生成时间：{{ report_time }} ｜ 目录快照：{{ snapshot_range }}
+> 目录文件：`{{ catalog_path }}` ｜ 价格事件文件：`{{ changes_path or '未提供' }}`
+
+---
+
+## 1. 数据概览
+
+| 项目 | 数值 |
+|---|---:|
+| 目录变体数 | {{ catalog_rows|fmt_int }} |
+| 店铺数 | {{ stores|fmt_int }} |
+| 商品数 | {{ products|fmt_int }} |
+| 变体数（唯一） | {{ variants|fmt_int }} |
+| 可用变体 | {{ available_true|fmt_int }} |
+| 不可用变体 | {{ available_false|fmt_int }} |
+| 价格 P50 / P90 / P99 | {{ price_stats.p50|fmt_num }} / {{ price_stats.p90|fmt_num }} / {{ price_stats.p99|fmt_num }} |
+| 价格范围 | {{ price_stats.min|fmt_num }} ~ {{ price_stats.max|fmt_num }} |
+
+{% if changes.available %}
+| 价格/可用性事件 | 数值 |
+|---|---:|
+| 事件数 | {{ changes.rows|fmt_int }} |
+| 事件日期 | {{ changes.date_min or '—' }}{% if changes.date_max and changes.date_max != changes.date_min %} ~ {{ changes.date_max }}{% endif %} |
+| 涉及店铺 | {{ changes.stores|fmt_int }} |
+| 涉及商品 | {{ changes.products|fmt_int }} |
+| 涉及变体 | {{ changes.variants|fmt_int }} |
+| 与目录样本的店铺交集 | {{ changes.store_overlap|fmt_int }} |
+| 与目录样本的变体交集 | {{ changes.variant_overlap|fmt_int }} |
+{% else %}
+本次未提供价格事件文件，只分析目录快照。
+{% endif %}
+
+---
+
+## 2. 目录质量
+
+| 项目 | 数值 |
+|---|---:|
+| 重复变体 | {{ duplicate_variants|fmt_int }} |
+| 有划线价（compare_at_price） | {{ compare_at_present|fmt_int }} |
+| product_type 缺失/未分类 | {{ missing_counts.product_type|fmt_int }} |
+| tags 缺失 | {{ missing_counts.tags|fmt_int }} |
+| SKU 缺失 | {{ missing_counts.sku|fmt_int }} |
+| compare_at_price 缺失 | {{ missing_counts.compare_at_price|fmt_int }} |
+
+### 价格带分布
+
+| 价格带 | 变体数 |
+|---|---:|
+{% for item in price_bins %}
+| {{ item.label }} | {{ item.count|fmt_int }} |
+{% endfor %}
+
+{% if zero_price_rows %}
+### 零价格变体
+
+| 店铺 | 商品 | 变体ID | 价格 |
+|---|---|---|---:|
+{% for row in zero_price_rows %}
+| {{ row.store|md }} | {{ row.display_name|md }} | `{{ row.variant_id }}` | {{ row.price|fmt_num }} |
+{% endfor %}
+{% endif %}
+
+---
+
+## 3. 类目与店铺
+
+### 类目分布
+
+| 类目 | 变体数 | 店铺数 | 价格中位数 | 可用率 |
+|---|---:|---:|---:|---:|
+{% for row in niche_summary %}
+| {{ row.niche|md }} | {{ row.variants|fmt_int }} | {{ row.stores|fmt_int }} | {{ row.median_price|fmt_num }} | {{ row.available_rate|fmt_pct }} |
+{% endfor %}
+
+### 变体数 Top 店铺
+
+| 店铺 | 变体数 | 可用 | 价格中位数 |
+|---|---:|---:|---:|
+{% for row in store_summary %}
+| {{ row.store|md }}{% if row.store_name and row.store_name != row.store %}（{{ row.store_name|md }}）{% endif %} | {{ row.variants|fmt_int }} | {{ row.available|fmt_int }} | {{ row.median_price|fmt_num }} |
+{% endfor %}
+
+---
+
+## 4. 价格与可用性事件
+
+{% if changes.available %}
+### 事件类型
+
+| 事件 | 数量 |
+|---|---:|
+{% for name, count in changes.event_counts.items() %}
+| {{ name|event_label }} | {{ count|fmt_int }} |
+{% endfor %}
+
+### 价格变动 Top {{ changes.top_price_changes|length }}
+
+| 店铺 | 商品 | 变体ID | 日期 | 类型 | 原价 | 新价 | 幅度 |
+|---|---|---|---|---|---:|---:|---:|
+{% for row in changes.top_price_changes %}
+| {{ row.store|md }} | {{ (row.display_name or row.product_id)|md }} | `{{ row.variant_id }}` | {{ row.date }} | {{ row.type|event_label }} | {{ row.old_price|fmt_num }} | {{ row.new_price|fmt_num }} | {{ row.change_pct|fmt_change }} |
+{% endfor %}
+{% if not changes.top_price_changes %}
+无价格变动事件。
+{% endif %}
+
+### 缺货/补货/新上架
+
+| 店铺 | 商品 | 变体ID | 日期 | 类型 |
+|---|---|---|---|---|
+{% for row in changes.availability_events %}
+| {{ row.store|md }} | {{ (row.display_name or row.product_id)|md }} | `{{ row.variant_id }}` | {{ row.date }} | {{ row.type|event_label }} |
+{% endfor %}
+{% if not changes.availability_events %}
+无相关事件。
+{% endif %}
+
+### 店铺事件 Top {{ changes.store_summary|length }}
+
+| 店铺 | 事件数 | 降价 | 涨价 | 缺货 | 补货 | 新上架 |
+|---|---:|---:|---:|---:|---:|---:|
+{% for row in changes.store_summary %}
+| {{ row.store|md }} | {{ row.events|fmt_int }} | {{ row.price_drop|fmt_int }} | {{ row.price_increase|fmt_int }} | {{ row.out_of_stock|fmt_int }} | {{ row.restocked|fmt_int }} | {{ row.new_listing|fmt_int }} |
+{% endfor %}
+{% else %}
+本次未提供价格事件文件。
+{% endif %}
+
+---
+
+## 5. 待人工确认
+
+{% for item in manual_checks %}
+- {{ item }}
+{% endfor %}
+{% if not manual_checks %}
+- 本次没有发现必须人工确认的目录问题，仍建议抽查零价格、缺货和大额价格变动。
+{% endif %}
+
+---
+
+## 6. 数据限制
+
+{% for item in limitations %}
+- {{ item }}
+{% endfor %}
+
+---
+
+## 7. 说明
+
+- 本报告只分析商品目录、价格与可用性，不计算订单、销售额、PV/UV 或转化率。
+- 价格事件与目录快照可能来自不同抽样；交集为 0 时不能按变体直接关联。
+- 本报告不调用大模型，所有结论来自固定规则统计。
+- 数据源许可：CC BY-NC 4.0（非商业评估），商用前需确认完整数据集的商业许可。
