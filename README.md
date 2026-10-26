@@ -228,6 +228,7 @@ RAG 当前使用智谱 `embedding-3`（1024 维），与 GLM 共用一把 Key；
 - `docs/decisions.md`：需求口径、架构决策、技术栈决策
 - `docs/runbook.md`：运行、排错、配置调整、数据替换
 - `docs/threshold_sensitivity_reference.md`：参考样本阈值敏感度工程测试结果（不作为业务定案）
+- `docs/data_assessment_shopify_catalog.md`：你提供的 Shopify 目录样本评估（缺订单/流量，不适合直接跑日报）
 
 ## 10. 安全
 
