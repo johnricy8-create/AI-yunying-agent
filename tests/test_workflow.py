@@ -72,6 +72,19 @@ def test_rerun_same_date_overwrites_report(context, mock_csv, settings):
     assert "test-run-001" not in content
 
 
+def test_data_note_is_written_to_report(context, mock_csv):
+    result = run_workflow(
+        context,
+        run_id="test-note",
+        source_path=str(mock_csv),
+        stat_date="2026-10-25",
+        data_note="演示数据说明：销售字段为模拟值",
+    )
+    content = read_text(Path(result["report_path"]))
+    assert "数据说明" in content
+    assert "销售字段为模拟值" in content
+
+
 def test_missing_data_file_fails_fast(context, tmp_path):
     with pytest.raises(DataLoadError):
         load_data_node(

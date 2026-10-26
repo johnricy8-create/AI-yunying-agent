@@ -67,6 +67,21 @@ python run.py
 
 如果 PowerShell 禁止执行激活脚本，直接用 `.venv\Scripts\python.exe` 即可，不影响运行。
 
+### 一键演示
+
+```powershell
+# 目录/价格报告 + 目录/模拟销售日报
+.venv\Scripts\python.exe tools\run_demo.py
+
+# 尝试调用 GLM（免费模型可能限流/超时）
+.venv\Scripts\python.exe tools\run_demo.py --with-ai
+
+# 强制重建模拟销售数据
+.venv\Scripts\python.exe tools\run_demo.py --rebuild
+```
+
+默认读取你提供的 Shopify 目录样本；如果路径不同，用 `--catalog` / `--changes` 指定。
+
 ### 常用参数
 
 ```powershell
@@ -177,6 +192,7 @@ python run.py
 │  ├─ profile_data.py           # 真实数据画像与质量检查
 │  ├─ catalog_report.py         # 商品目录/价格监控报告
 │  ├─ build_shopify_sales_demo.py # 目录 + 模拟销售演示数据
+│  ├─ run_demo.py               # 一键演示（目录报告 + 模拟销售日报）
 │  ├─ threshold_sensitivity.py  # 阈值敏感度工程测试
 │  ├─ build_reference_sample.py # 构建 UCI 参考样本
 │  ├─ build_history.py          # 生成历史日报语料
@@ -203,7 +219,7 @@ python run.py
 .venv\Scripts\python.exe -m pytest
 ```
 
-当前共 **65 个测试**，覆盖：
+当前共 **66 个测试**，覆盖：
 
 - 指标计算与昨日对比、UV/PV 分母、缺失昨日、昨日为 0；
 - 3/5/7 自适应基线、历史不足、新品首日/第二天、均值为 0；

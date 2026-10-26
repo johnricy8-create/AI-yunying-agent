@@ -278,21 +278,26 @@ def render_report(context: RunContext, state: AgentState) -> Path:
     ai_status_label = _AI_STATUS_LABELS.get(ai_status, ai_status)
     ai_error = str(ai_result.get("error") or "")[:500]
     ai_message = str(ai_result.get("message") or "")
+    data_note = str(state.get("data_note") or "").strip()
+    data_note_line = f"> ⚠️ **数据说明**：{data_note}" if data_note else ""
     report_time = format_datetime()
     status = str(state.get("status", ""))
     pipeline_status = _STATUS_LABELS.get(status, status or "—")
     # 报告能渲染到这里，说明本次报告生成已经成功；流水线状态单独展示。
     status_label = "成功（报告已生成）"
 
-    data_limitations: list[str] = [
+    data_limitations: list[str] = []
+    if data_note:
+        data_limitations.append(f"数据说明：{data_note}")
+    data_limitations.extend([
         "指标与异常由 Python 规则计算；AI 内容仅在调用成功时提供辅助分析，不替代业务验证。",
         "统计日期默认为运行日的前一天（D-1）；如需补跑，可在命令行显式指定日期。",
         "基线采用 3/5/7 日均值，按近期波动自适应选择；无法处理周内规律与季节性，开学季等正常波动可能被误判。",
         "缺失日期不插值；基线只使用有效历史数据。",
         "昨日浏览量为 0 或缺失时，浏览量变化率显示为“—”，不参与异常判定。",
         "销售额为已扣除退款、不含税的净额；退款金额仅用于校验，不再二次扣减。",
-        "库存仅作展示与数据校验，阶段一不参与异常判定（库存规则默认关闭）。",
-    ]
+        "库存仅作展示与数据校验，当前不参与异常判定（库存规则默认关闭）。",
+    ])
     if int(summary.get("invalid_rows", 0) or 0) > 0:
         data_limitations.append(
             f"本次有 {summary.get('invalid_rows')} 行数据未通过校验，已从指标计算中排除。"
@@ -361,6 +366,7 @@ def render_report(context: RunContext, state: AgentState) -> Path:
         content = template.render(
             report_time=report_time,
             stat_date=stat_date,
+            data_note_line=data_note_line,
             run_id=state.get("run_id", "—"),
             status_label=status_label,
             pipeline_status=pipeline_status,

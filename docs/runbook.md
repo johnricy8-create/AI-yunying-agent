@@ -140,6 +140,21 @@ uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 - 只用于看完整 Agent 效果，**不能用于真实阈值校准**；
 - 详见 `docs/shopify_sales_demo.md`。
 
+### 2.7 一键演示
+
+```powershell
+# 目录报告 + 目录/模拟销售日报
+.venv\Scripts\python.exe tools\run_demo.py
+
+# 尝试 AI（免费模型可能 1305/超时，失败自动降级）
+.venv\Scripts\python.exe tools\run_demo.py --with-ai
+
+# 强制重建模拟销售数据
+.venv\Scripts\python.exe tools\run_demo.py --rebuild
+```
+
+日报会把数据来源说明写入报告顶部；演示数据的销售/流量/成本/库存会明确标注为模拟值。
+
 ---
 
 ## 3. 运行
@@ -213,7 +228,7 @@ RAG 检索块   : 12 / 索引 141
 预期：
 
 ```text
-65 passed
+66 passed
 ```
 
 测试覆盖指标、基线、异常边界、数据校验、RAG 切分/检索、AI JSON 解析/重试/缓存/降级、端到端工作流、报告章节、同日覆盖、日志 run_id、缺失文件快速失败。
@@ -347,6 +362,8 @@ AI 与 RAG 参数在 `config/settings.yaml` 的 `llm` / `rag` 段：
 - [ ] `tools/profile_data.py` 能输出表头、空值、质量、日期覆盖、数值分布
 - [ ] `tools/catalog_report.py` 能生成目录/价格监控报告
 - [ ] `tools/build_shopify_sales_demo.py` 能生成可跑通的模拟销售演示数据
+- [ ] `tools/run_demo.py` 能一键生成目录报告和演示日报
+- [ ] 日报顶部有数据来源说明（演示数据会标注模拟字段）
 - [ ] RAG 索引可构建，检索结果带来源与相似度
 - [ ] AI 成功时报告包含摘要、事实、原因、建议、引用
 - [ ] AI 失败时报告仍生成，并明确标注规则型降级

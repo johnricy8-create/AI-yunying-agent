@@ -22,6 +22,20 @@
 
 ## 3. 生成与运行
 
+### 一键演示
+
+```powershell
+# 目录报告 + 模拟销售日报
+.venv\Scripts\python.exe tools\run_demo.py
+
+# 尝试 AI
+.venv\Scripts\python.exe tools\run_demo.py --with-ai
+```
+
+日报顶部会写数据来源说明，明确销售/流量/成本/库存为模拟值。
+
+### 分步执行
+
 ```powershell
 # 1) 生成演示销售数据
 .venv\Scripts\python.exe tools\build_shopify_sales_demo.py `

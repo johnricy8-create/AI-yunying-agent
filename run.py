@@ -35,6 +35,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--date", default=None, help="统计日期，格式 YYYY-MM-DD；默认 D-1")
     parser.add_argument("--data", default=None, help="数据 CSV/Excel 路径；默认使用 settings.yaml")
     parser.add_argument("--sheet", default=None, help="Excel 工作表名称；默认第一个工作表")
+    parser.add_argument(
+        "--data-note",
+        default=None,
+        help="写入报告的数据来源说明，例如“销售字段为模拟数据”",
+    )
     parser.add_argument("--config", default=None, help="settings.yaml 路径")
     parser.add_argument("--fields", default=None, help="fields.yaml 路径")
     parser.add_argument("--report-dir", default=None, help="报告输出目录")
@@ -119,6 +124,7 @@ def main(argv: list[str] | None = None) -> int:
             stat_date=stat_date,
             force_refresh_ai=args.refresh_ai,
             sheet_name=args.sheet,
+            data_note=args.data_note,
         )
 
         summary = result.get("global_summary", {}) or {}
