@@ -46,6 +46,62 @@ def overview(db_path: str | Path) -> dict[str, Any]:
         connection.close()
 
 
+def recent_runs(db_path: str | Path, limit: int = 14) -> list[dict[str, Any]]:
+    connection = connect(db_path)
+    try:
+        rows = connection.execute(
+            """
+            SELECT stat_date, run_id, total_pv, total_orders, total_sales,
+                   overall_cr, overall_pv_change_rate, anomaly_count,
+                   product_count, report_path, ai_status, data_note
+            FROM runs
+            ORDER BY stat_date DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    finally:
+        connection.close()
+    data = [dict(row) for row in rows]
+    max_pv = max((float(item["total_pv"] or 0) for item in data), default=0.0)
+    max_orders = max((float(item["total_orders"] or 0) for item in data), default=0.0)
+    for item in data:
+        item["pv_width"] = round(float(item["total_pv"] or 0) / max_pv * 100, 1) if max_pv else 0
+        item["orders_width"] = (
+            round(float(item["total_orders"] or 0) / max_orders * 100, 1) if max_orders else 0
+        )
+    return data
+
+
+def latest_run(db_path: str | Path) -> dict[str, Any] | None:
+    runs = recent_runs(db_path, limit=1)
+    return runs[0] if runs else None
+
+
+def latest_anomalies(
+    db_path: str | Path,
+    stat_date: str,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    connection = connect(db_path)
+    try:
+        rows = connection.execute(
+            """
+            SELECT product_id, product_name, shop, category, pv, uv, orders,
+                   sales_amount, cr, pv_change_rate, anomaly_types,
+                   severity_score, severity_level
+            FROM product_metrics
+            WHERE stat_date = ? AND anomaly_types != ''
+            ORDER BY severity_score DESC, pv DESC
+            LIMIT ?
+            """,
+            (stat_date, limit),
+        ).fetchall()
+    finally:
+        connection.close()
+    return [dict(row) for row in rows]
+
+
 def recurring_products(
     db_path: str | Path,
     min_count: int = 2,

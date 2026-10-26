@@ -21,6 +21,7 @@ reports/threshold_sensitivity/
 reports/catalog/
 reports/shopify_demo/
 reports/history_review/
+reports/dashboard/
 data/rag/
 data/cache/
 

@@ -42,6 +42,7 @@ AI 调用失败、限流、超时或 JSON 无效时，自动回退到规则型�
 | 演示分支 | `ecom_ops/demo/` | 用目录 + 明确标注的模拟销售字段跑通完整日报 |
 | 调度层 | `scheduler.py`、`ecom_ops/scheduler/` | 每日 09:00、文件锁、有限重试、Windows 常驻 |
 | 历史层 | `ecom_ops/history/`、`data/history/` | SQLite 历史、重复异常、商品对比、建议后续观察 |
+| 看板层 | `ecom_ops/dashboard/`、`tools/build_dashboard.py` | 本地静态 HTML 看板；无服务器/外部 CDN |
 | 大模型层 | `ecom_ops/llm/` | GLM 客户端、提示词、JSON 校验、重试、缓存、降级 |
 | 编排层 | `ecom_ops/graph/` | StateGraph、状态契约、节点实现 |
 | 报告层 | `ecom_ops/report/` | Jinja2 模板、Markdown 渲染、原子写入 |
@@ -276,7 +277,17 @@ Shopify catalog 快照 + price_changes 事件
 
 ---
 
-## 11. 扩展点
+## 11. 可视化看板
+
+- 入口：`tools/build_dashboard.py`
+- 输出：`reports/dashboard/index.html`
+- 数据：历史库 + 可选目录/价格事件。
+- 内容：每日趋势、最新异常、重复异常、建议观察、目录价格事件。
+- 技术：Jinja2 静态 HTML + 内联 CSS；无服务器、无外部 CDN、不调用大模型。
+
+---
+
+## 12. 扩展点
 
 | 阶段 | 扩展方式 |
 |---|---|

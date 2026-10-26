@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>运营总览{% if latest %} · {{ latest.stat_date }}{% endif %}</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --ink: #1f2937;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --brand: #2563eb;
+      --brand-soft: #dbeafe;
+      --warn: #b45309;
+      --danger: #b91c1c;
+      --ok: #047857;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+      line-height: 1.55;
+    }
+    .wrap { max-width: 1240px; margin: 0 auto; padding: 28px 22px 48px; }
+    header { margin-bottom: 22px; }
+    h1 { margin: 0 0 6px; font-size: 28px; }
+    .sub { color: var(--muted); font-size: 13px; }
+    .banner {
+      margin: 14px 0 0;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: #fff7ed;
+      color: var(--warn);
+      border: 1px solid #fed7aa;
+      font-size: 13px;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin: 18px 0 24px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 14px 16px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+    }
+    .card .label { color: var(--muted); font-size: 12px; }
+    .card .value { font-size: 24px; font-weight: 700; margin-top: 4px; }
+    .card .hint { color: var(--muted); font-size: 11px; margin-top: 4px; }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 18px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+    }
+    h2 { margin: 0 0 12px; font-size: 18px; }
+    h3 { margin: 18px 0 8px; font-size: 15px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 8px 9px; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
+    th { color: var(--muted); font-weight: 600; background: #fafafa; white-space: nowrap; }
+    td.num, th.num { text-align: right; }
+    code { font-size: 12px; color: #374151; background: #f3f4f6; padding: 1px 4px; border-radius: 4px; }
+    .muted { color: var(--muted); }
+    .pill { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; background: var(--brand-soft); color: var(--brand); }
+    .pill.high { background: #fee2e2; color: var(--danger); }
+    .pill.mid { background: #fef3c7; color: var(--warn); }
+    .pill.low { background: #d1fae5; color: var(--ok); }
+    .bar-track { background: #eef2f7; border-radius: 999px; height: 8px; min-width: 90px; }
+    .bar { height: 8px; border-radius: 999px; background: var(--brand); }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .empty { color: var(--muted); padding: 18px 0; }
+    .list { margin: 6px 0 0; padding-left: 18px; }
+    .list li { margin: 3px 0; }
+    .report { font-size: 11px; color: var(--muted); word-break: break-all; }
+    footer { color: var(--muted); font-size: 12px; margin-top: 22px; }
+    @media (max-width: 760px) {
+      .two-col { grid-template-columns: 1fr; }
+      h1 { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>运营总览</h1>
+    <div class="sub">
+      生成时间：{{ generated_at }} ｜ 历史库：<code>{{ db_path }}</code>
+      {% if latest %} ｜ 最新统计日：{{ latest.stat_date }}{% endif %}
+    </div>
+    {% if latest and latest.data_note %}
+    <div class="banner">数据说明：{{ latest.data_note }}</div>
+    {% endif %}
+  </header>
+
+  {% if not runs %}
+  <section>
+    <h2>暂无历史数据</h2>
+    <p class="empty">先运行 <code>run.py</code> 或 <code>scheduler.py</code> 生成日报，历史库会自动记录。</p>
+  </section>
+  {% else %}
+
+  <div class="cards">
+    <div class="card"><div class="label">已记录天数</div><div class="value">{{ overview.runs|fmt_int }}</div><div class="hint">{{ overview.first_date }} ~ {{ overview.last_date }}</div></div>
+    <div class="card"><div class="label">最新浏览量</div><div class="value">{{ latest.total_pv|fmt_int }}</div><div class="hint">变化 {{ latest.overall_pv_change_rate|fmt_change }}</div></div>
+    <div class="card"><div class="label">最新订单量</div><div class="value">{{ latest.total_orders|fmt_int }}</div><div class="hint">异常 {{ latest.anomaly_count|fmt_int }} 个</div></div>
+    <div class="card"><div class="label">最新销售额</div><div class="value">{{ latest.total_sales|fmt_num }}</div><div class="hint">转化率 {{ latest.overall_cr|fmt_pct }}</div></div>
+    <div class="card"><div class="label">涉及商品</div><div class="value">{{ overview.products|fmt_int }}</div><div class="hint">AI 成功天数 {{ overview.ai_runs|fmt_int }}</div></div>
+    <div class="card"><div class="label">建议记录</div><div class="value">{{ overview.recommendations|fmt_int }}</div><div class="hint">累计异常 {{ overview.anomalies|fmt_int }}</div></div>
+  </div>
+
+  <section>
+    <h2>每日趋势</h2>
+    <table>
+      <thead>
+        <tr><th>日期</th><th>浏览量</th><th>订单量</th><th class="num">销售额</th><th class="num">转化率</th><th class="num">异常</th><th>AI</th></tr>
+      </thead>
+      <tbody>
+        {% for run in runs %}
+        <tr>
+          <td><strong>{{ run.stat_date }}</strong></td>
+          <td>
+            <div>{{ run.total_pv|fmt_int }}</div>
+            <div class="bar-track"><div class="bar" style="width: {{ run.pv_width }}%"></div></div>
+          </td>
+          <td>
+            <div>{{ run.total_orders|fmt_int }}</div>
+            <div class="bar-track"><div class="bar" style="width: {{ run.orders_width }}%"></div></div>
+          </td>
+          <td class="num">{{ run.total_sales|fmt_num }}</td>
+          <td class="num">{{ run.overall_cr|fmt_pct }}</td>
+          <td class="num">{{ run.anomaly_count|fmt_int }}</td>
+          <td>{{ run.ai_status or "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <div class="two-col">
+    <section>
+      <h2>最新异常 Top {{ anomalies|length }}</h2>
+      {% if anomalies %}
+      <table>
+        <thead><tr><th>商品</th><th>异常</th><th class="num">PV</th><th class="num">订单</th><th class="num">转化率</th><th>严重度</th></tr></thead>
+        <tbody>
+          {% for item in anomalies %}
+          <tr>
+            <td>{{ item.product_name }}<br><span class="muted">{{ item.shop }} · {{ item.product_id }}</span></td>
+            <td>{{ item.anomaly_types }}</td>
+            <td class="num">{{ item.pv|fmt_int }}</td>
+            <td class="num">{{ item.orders|fmt_int }}</td>
+            <td class="num">{{ item.cr|fmt_pct }}</td>
+            <td>
+              {% if item.severity_level == "高危" %}<span class="pill high">高危</span>
+              {% elif item.severity_level == "中危" %}<span class="pill mid">中危</span>
+              {% else %}<span class="pill low">{{ item.severity_level or "—" }}</span>{% endif %}
+              <span class="muted">{{ item.severity_score|fmt_num(1) }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="empty">最新日期没有异常商品。</p>
+      {% endif %}
+    </section>
+
+    <section>
+      <h2>重复异常商品</h2>
+      {% if recurring %}
+      <table>
+        <thead><tr><th>商品</th><th class="num">天数</th><th>类型</th><th>最近</th></tr></thead>
+        <tbody>
+          {% for item in recurring %}
+          <tr>
+            <td>{{ item.product_name }}<br><span class="muted">{{ item.product_id }}</span></td>
+            <td class="num">{{ item.days }}</td>
+            <td>{{ item.types }}</td>
+            <td>{{ item.last_date }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="empty">暂未达到重复异常门槛。</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <section>
+    <h2>建议后续观察</h2>
+    <p class="sub">只是后续指标变化，不代表因果；观察窗口为后续 {{ settings_lookahead }} 个有数据交易日。</p>
+    {% if advice.summary %}
+    <div class="cards">
+      {% for label, count in advice.summary.items() %}
+      <div class="card"><div class="label">{{ label }}</div><div class="value">{{ count|fmt_int }}</div></div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if advice.details %}
+    <table>
+      <thead><tr><th>日期</th><th>商品</th><th>来源</th><th>建议</th><th>后续</th><th class="num">订单变化</th><th>观察</th></tr></thead>
+      <tbody>
+        {% for item in advice.details[:10] %}
+        <tr>
+          <td>{{ item.stat_date }}</td>
+          <td>{{ item.product_name or item.product_id }}</td>
+          <td>{{ item.source|source_label }}</td>
+          <td>{{ item.action }}</td>
+          <td>{{ item.followup_date or "—" }}</td>
+          <td class="num">{{ item.order_change|fmt_change }}</td>
+          <td>{{ item.classification }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">暂无可追踪建议。</p>
+    {% endif %}
+  </section>
+
+  {% endif %}
+
+  {% if catalog %}
+  <section>
+    <h2>商品目录与价格事件</h2>
+    <div class="cards">
+      <div class="card"><div class="label">目录变体</div><div class="value">{{ catalog.catalog_rows|fmt_int }}</div><div class="hint">{{ catalog.stores }} 店铺 / {{ catalog.products }} 商品</div></div>
+      <div class="card"><div class="label">可用 / 不可用</div><div class="value">{{ catalog.available_true|fmt_int }} / {{ catalog.available_false|fmt_int }}</div></div>
+      <div class="card"><div class="label">价格 P50 / P90</div><div class="value">{{ catalog.price_stats.p50|fmt_num }} / {{ catalog.price_stats.p90|fmt_num }}</div></div>
+      <div class="card"><div class="label">价格事件</div><div class="value">{{ catalog.changes.rows|fmt_int }}</div><div class="hint">缺货 {{ catalog.changes.event_counts.get('out_of_stock', 0)|fmt_int }}</div></div>
+    </div>
+
+    {% if catalog.changes.top_price_changes %}
+    <h3>价格变动 Top</h3>
+    <table>
+      <thead><tr><th>店铺</th><th>商品</th><th>类型</th><th class="num">原价</th><th class="num">新价</th><th class="num">幅度</th></tr></thead>
+      <tbody>
+        {% for item in catalog.changes.top_price_changes %}
+        <tr>
+          <td>{{ item.store }}</td>
+          <td>{{ item.display_name or item.product_id }}</td>
+          <td>{{ item.type|event_label }}</td>
+          <td class="num">{{ item.old_price|fmt_num }}</td>
+          <td class="num">{{ item.new_price|fmt_num }}</td>
+          <td class="num">{{ item.change_pct|fmt_change }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if catalog.changes.availability_events %}
+    <h3>缺货/补货/新上架</h3>
+    <table>
+      <thead><tr><th>店铺</th><th>商品</th><th>类型</th><th>日期</th></tr></thead>
+      <tbody>
+        {% for item in catalog.changes.availability_events %}
+        <tr><td>{{ item.store }}</td><td>{{ item.display_name or item.product_id }}</td><td>{{ item.type|event_label }}</td><td>{{ item.date }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if catalog.manual_checks %}
+    <h3>待人工确认</h3>
+    <ul class="list">
+      {% for item in catalog.manual_checks %}
+      <li>{{ item }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+  {% elif catalog_error %}
+  <section>
+    <h2>商品目录</h2>
+    <p class="empty">目录数据读取失败：{{ catalog_error }}</p>
+  </section>
+  {% endif %}
+
+  <footer>
+    本看板为本地静态 HTML，不调用大模型。数据来自历史库与可选的目录快照。
+    历史复盘中的“改善/恶化”是观察结果，不是因果结论。
+  </footer>
+</div>
+</body>
+</html>

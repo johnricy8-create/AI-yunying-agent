@@ -283,6 +283,28 @@ reports/history_review/ops_history_report.md
 
 注意：历史库每个统计日只保留一份最新快照；同日重跑会覆盖。历史复盘是观察性分析，不是因果结论。
 
+### 3.5 可视化看板
+
+```powershell
+.venv\Scripts\python.exe tools\build_dashboard.py
+```
+
+输出：
+
+```text
+reports/dashboard/index.html
+```
+
+浏览器直接打开即可。看板包含：
+
+- 每日 PV/订单趋势条；
+- 最新 Top 异常；
+- 重复异常商品；
+- 建议后续观察；
+- 可选的目录/价格事件（默认读取你提供的 Shopify 目录样本）。
+
+看板是纯静态 HTML，不依赖服务器、外部 CDN 或大模型。
+
 ---
 
 ## 4. 测试
@@ -294,7 +316,7 @@ reports/history_review/ops_history_report.md
 预期：
 
 ```text
-72 passed
+74 passed
 ```
 
 测试覆盖指标、基线、异常边界、数据校验、RAG 切分/检索、AI JSON 解析/重试/缓存/降级、端到端工作流、报告章节、同日覆盖、日志 run_id、缺失文件快速失败。
@@ -435,6 +457,7 @@ AI 与 RAG 参数在 `config/settings.yaml` 的 `llm` / `rag` 段：
 - [ ] 两次执行不会并发（文件锁生效）
 - [ ] 日报成功后自动写入历史库
 - [ ] `tools/history_report.py` 能生成重复异常、商品对比、建议追踪
+- [ ] `tools/build_dashboard.py` 能生成静态 HTML 看板
 - [ ] RAG 索引可构建，检索结果带来源与相似度
 - [ ] AI 成功时报告包含摘要、事实、原因、建议、引用
 - [ ] AI 失败时报告仍生成，并明确标注规则型降级
@@ -448,6 +471,6 @@ AI 与 RAG 参数在 `config/settings.yaml` 的 `llm` / `rag` 段：
 
 - 阶段三：CSV/Excel、模板、数据画像已完成；等待脱敏真实样例后校准阈值。
 - 阶段四：已完成 APScheduler 每日 09:00、文件锁、有限重试、Windows 任务计划程序说明。
-- 阶段五：已完成历史记录、商品对比、建议后续观察；通知、看板、真实人工反馈可继续扩展。
+- 阶段五：已完成历史记录、商品对比、建议后续观察、静态看板；通知与真实人工反馈可继续扩展。
 
 当前不提供定时任务；电脑关机、休眠或程序退出时不会自动执行，这是阶段四要解决的问题。

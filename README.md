@@ -11,6 +11,7 @@
 5. 用你提供的商品目录生成一份**明确标注模拟字段的销售演示数据**，可以立刻跑通完整日报；模拟销售字段不能用于真实业务校准。
 6. 阶段四定时执行：每天北京时间 09:00 自动跑，文件锁防并发，失败有限重试；Windows 用任务计划程序长期运行。
 7. 阶段五历史复盘：SQLite 保存每日指标/异常/建议，支持重复异常、商品历史对比、建议后续变化观察。
+8. 本地静态 HTML 看板：每日趋势、Top 异常、重复异常、建议观察、目录/价格事件，双击即可看，不需要服务器。
 
 > 阶段二只做分析与建议，**不自动改价、不自动发布、不操作真实电商账户**。所有涉及业务动作的建议都标记为需人工确认。
 
@@ -131,6 +132,20 @@ reports/history_review/ops_history_report.md
 
 > “改善/恶化”只是后续观察，不是因果结论。
 
+### 可视化看板
+
+```powershell
+.venv\Scripts\python.exe tools\build_dashboard.py
+```
+
+输出：
+
+```text
+reports/dashboard/index.html
+```
+
+直接用浏览器打开即可。包含每日趋势、最新 Top 异常、重复异常、建议后续观察，以及可选的商品目录/价格事件。页面是静态 HTML，不依赖服务器或外部 CDN。
+
 ### 常用参数
 
 ```powershell
@@ -197,6 +212,7 @@ reports/history_review/ops_history_report.md
 | 目录/价格监控报告 | `reports/catalog/YYYY-MM-DD_catalog_report.md` |
 | 演示日报 | `reports/shopify_demo/YYYY-MM-DD_daily_report.md`（模拟销售字段） |
 | 历史复盘 | `reports/history_review/ops_history_report.md` |
+| 可视化看板 | `reports/dashboard/index.html` |
 | 历史库 | `data/history/ops_history.db`（gitignore） |
 | 历史日报语料 | `reports/history/`（已 gitignore，可重建） |
 | RAG 索引 | `data/rag/`（已 gitignore，可重建） |
@@ -238,6 +254,7 @@ reports/history_review/ops_history_report.md
 │  ├─ demo/                     # 用目录生成模拟销售演示数据
 │  ├─ scheduler/                # 定时执行、锁、重试
 │  ├─ history/                  # SQLite 历史、商品对比、建议追踪
+│  ├─ dashboard/                # 本地静态 HTML 看板
 │  ├─ report/                   # Jinja2 报告渲染与模板
 │  └─ utils/                    # 日期、时区、文件工具
 ├─ knowledge/                   # 运营知识库（示例 SOP，需业务方审核）
@@ -249,6 +266,7 @@ reports/history_review/ops_history_report.md
 │  ├─ build_shopify_sales_demo.py # 目录 + 模拟销售演示数据
 │  ├─ run_demo.py               # 一键演示（目录报告 + 模拟销售日报）
 │  ├─ history_report.py         # 历史复盘报告
+│  ├─ build_dashboard.py        # 本地静态 HTML 看板
 │  ├─ threshold_sensitivity.py  # 阈值敏感度工程测试
 │  ├─ build_reference_sample.py # 构建 UCI 参考样本
 │  ├─ build_history.py          # 生成历史日报语料
@@ -276,7 +294,7 @@ reports/history_review/ops_history_report.md
 .venv\Scripts\python.exe -m pytest
 ```
 
-当前共 **72 个测试**，覆盖：
+当前共 **74 个测试**，覆盖：
 
 - 指标计算与昨日对比、UV/PV 分母、缺失昨日、昨日为 0；
 - 3/5/7 自适应基线、历史不足、新品首日/第二天、均值为 0；
@@ -289,6 +307,7 @@ reports/history_review/ops_history_report.md
 - 演示数据：确定性生成、字段范围、订单不超过 PV/UV、退款不超过销售额、缺字段报错；
 - 定时任务：时间解析、文件锁、单次执行、报告生成、调度器注册；
 - 历史复盘：SQLite 写入/覆盖、重复异常、商品历史、建议效果分类、报告渲染；
+- 看板：数据组装、HTML 渲染、空历史、无外部 CDN；
 - LangGraph 端到端、报告 12 个章节、AI 报告渲染、同日覆盖、日志 run_id、缺失文件快速失败。
 
 ---
@@ -330,7 +349,7 @@ reports/history_review/ops_history_report.md
 | 阶段二 | 已完成：GLM-4.7-Flash、RAG、结构化建议、限流重试、失败降级、缓存 |
 | 阶段三 | CSV/Excel、模板、数据画像、参考样本、阈值敏感度、商品目录监控、目录+模拟销售演示已就绪；等待订单/流量真实样例校准销售日报阈值 |
 | 阶段四 | 已完成：APScheduler 每日 09:00、文件锁防并发、有限重试、手动/临时时间测试、Windows 任务计划程序说明 |
-| 阶段五 | 已完成历史记录、商品对比、建议后续观察；通知、看板、真实人工反馈仍可扩展 |
+| 阶段五 | 已完成历史记录、商品对比、建议后续观察、静态看板；通知与真实人工反馈仍可扩展 |
 
 RAG 当前使用智谱 `embedding-3`（1024 维），与 GLM 共用一把 Key；BGE-M3 不再作为默认方案。
 
