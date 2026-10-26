@@ -305,6 +305,29 @@ reports/dashboard/index.html
 
 看板是纯静态 HTML，不依赖服务器、外部 CDN 或大模型。
 
+### 3.6 Excel 导出
+
+```powershell
+.venv\Scripts\python.exe tools\export_history_excel.py --days 30
+```
+
+输出：
+
+```text
+reports/exports/ops_history_YYYYMMDD-HHMMSS.xlsx
+```
+
+工作表：
+
+- 说明
+- 每日概览
+- 商品指标
+- 异常明细
+- 建议清单
+- 建议追踪
+
+适合运营人员筛选、批注和二次分析。文件只包含商品级指标与建议文本，不包含客户个人信息。
+
 ---
 
 ## 4. 测试
@@ -316,7 +339,7 @@ reports/dashboard/index.html
 预期：
 
 ```text
-74 passed
+76 passed
 ```
 
 测试覆盖指标、基线、异常边界、数据校验、RAG 切分/检索、AI JSON 解析/重试/缓存/降级、端到端工作流、报告章节、同日覆盖、日志 run_id、缺失文件快速失败。
@@ -458,6 +481,7 @@ AI 与 RAG 参数在 `config/settings.yaml` 的 `llm` / `rag` 段：
 - [ ] 日报成功后自动写入历史库
 - [ ] `tools/history_report.py` 能生成重复异常、商品对比、建议追踪
 - [ ] `tools/build_dashboard.py` 能生成静态 HTML 看板
+- [ ] `tools/export_history_excel.py` 能导出六个工作表
 - [ ] RAG 索引可构建，检索结果带来源与相似度
 - [ ] AI 成功时报告包含摘要、事实、原因、建议、引用
 - [ ] AI 失败时报告仍生成，并明确标注规则型降级

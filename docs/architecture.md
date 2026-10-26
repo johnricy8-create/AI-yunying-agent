@@ -285,6 +285,13 @@ Shopify catalog 快照 + price_changes 事件
 - 内容：每日趋势、最新异常、重复异常、建议观察、目录价格事件。
 - 技术：Jinja2 静态 HTML + 内联 CSS；无服务器、无外部 CDN、不调用大模型。
 
+### Excel 导出
+
+- 入口：`tools/export_history_excel.py`
+- 输出：`reports/exports/ops_history_*.xlsx`
+- 六个工作表：说明、每日概览、商品指标、异常明细、建议清单、建议追踪。
+- 使用 openpyxl；只导出商品级指标与建议文本，不含客户个人信息。
+
 ---
 
 ## 12. 扩展点

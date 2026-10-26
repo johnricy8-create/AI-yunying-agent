@@ -146,6 +146,20 @@ reports/dashboard/index.html
 
 直接用浏览器打开即可。包含每日趋势、最新 Top 异常、重复异常、建议后续观察，以及可选的商品目录/价格事件。页面是静态 HTML，不依赖服务器或外部 CDN。
 
+### Excel 导出
+
+```powershell
+.venv\Scripts\python.exe tools\export_history_excel.py --days 30
+```
+
+输出：
+
+```text
+reports/exports/ops_history_YYYYMMDD-HHMMSS.xlsx
+```
+
+工作表：说明、每日概览、商品指标、异常明细、建议清单、建议追踪。
+
 ### 常用参数
 
 ```powershell
@@ -213,6 +227,7 @@ reports/dashboard/index.html
 | 演示日报 | `reports/shopify_demo/YYYY-MM-DD_daily_report.md`（模拟销售字段） |
 | 历史复盘 | `reports/history_review/ops_history_report.md` |
 | 可视化看板 | `reports/dashboard/index.html` |
+| Excel 导出 | `reports/exports/ops_history_*.xlsx` |
 | 历史库 | `data/history/ops_history.db`（gitignore） |
 | 历史日报语料 | `reports/history/`（已 gitignore，可重建） |
 | RAG 索引 | `data/rag/`（已 gitignore，可重建） |
@@ -267,6 +282,7 @@ reports/dashboard/index.html
 │  ├─ run_demo.py               # 一键演示（目录报告 + 模拟销售日报）
 │  ├─ history_report.py         # 历史复盘报告
 │  ├─ build_dashboard.py        # 本地静态 HTML 看板
+│  ├─ export_history_excel.py   # 历史数据 Excel 导出
 │  ├─ threshold_sensitivity.py  # 阈值敏感度工程测试
 │  ├─ build_reference_sample.py # 构建 UCI 参考样本
 │  ├─ build_history.py          # 生成历史日报语料
@@ -294,7 +310,7 @@ reports/dashboard/index.html
 .venv\Scripts\python.exe -m pytest
 ```
 
-当前共 **74 个测试**，覆盖：
+当前共 **76 个测试**，覆盖：
 
 - 指标计算与昨日对比、UV/PV 分母、缺失昨日、昨日为 0；
 - 3/5/7 自适应基线、历史不足、新品首日/第二天、均值为 0；
@@ -308,6 +324,7 @@ reports/dashboard/index.html
 - 定时任务：时间解析、文件锁、单次执行、报告生成、调度器注册；
 - 历史复盘：SQLite 写入/覆盖、重复异常、商品历史、建议效果分类、报告渲染；
 - 看板：数据组装、HTML 渲染、空历史、无外部 CDN；
+- Excel 导出：工作簿结构、行数、缺库报错；
 - LangGraph 端到端、报告 12 个章节、AI 报告渲染、同日覆盖、日志 run_id、缺失文件快速失败。
 
 ---
